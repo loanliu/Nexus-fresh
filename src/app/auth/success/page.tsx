@@ -13,7 +13,7 @@ export default function AuthSuccessPage() {
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          router.push('/');
+          // Don't call router.push here - just return 0
           return 0;
         }
         return prev - 1;
@@ -21,8 +21,15 @@ export default function AuthSuccessPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [router]);
+  }, []); // Remove router dependency
 
+  // Add a separate useEffect to handle the redirect
+  useEffect(() => {
+    if (countdown === 0) {
+      router.push('/');
+    }
+  }, [countdown, router]);
+  
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">

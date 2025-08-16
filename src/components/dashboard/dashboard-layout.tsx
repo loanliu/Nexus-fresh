@@ -49,7 +49,7 @@ export function DashboardLayout({ children, activeTab, onTabChange }: DashboardL
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
@@ -157,7 +157,7 @@ export function DashboardLayout({ children, activeTab, onTabChange }: DashboardL
       </div>
 
       {/* Main content */}
-      <div className="lg:pl-64">
+      <div className="flex-1 min-w-0 lg:pl-0">
         {/* Top bar */}
         <div className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between h-16 px-6">
@@ -177,7 +177,7 @@ export function DashboardLayout({ children, activeTab, onTabChange }: DashboardL
         </div>
 
         {/* Page content */}
-        <main className="p-6">
+        <main className="px-6 py-6">
           {children}
         </main>
       </div>
