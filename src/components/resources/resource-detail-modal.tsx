@@ -134,6 +134,24 @@ export function ResourceDetailModal({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const handleViewFile = () => {
+    if (resource.file_url) {
+      window.open(resource.file_url, '_blank');
+    } else {
+      toast.error('File URL not available');
+    }
+  };
+
+  const handleDownloadFile = () => {
+    if (resource.file_url) {
+      // Open file in new browser tab/window for download
+      window.open(resource.file_url, '_blank');
+      toast.success('Opening file in new tab for download!');
+    } else {
+      toast.error('File URL not available for download');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -161,7 +179,7 @@ export function ResourceDetailModal({
                     <Edit className="h-4 w-4 mr-2" />
                     Edit
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={handleDownloadFile}>
                     <Download className="h-4 w-4 mr-2" />
                     Download
                   </Button>
@@ -358,7 +376,7 @@ export function ResourceDetailModal({
 
                   {resource.file_url && (
                     <div className="pt-3 border-t border-gray-200 dark:border-gray-600">
-                      <Button variant="outline" size="sm" className="w-full">
+                      <Button variant="outline" size="sm" className="w-full" onClick={handleViewFile}>
                         <Eye className="h-4 w-4 mr-2" />
                         View File
                       </Button>

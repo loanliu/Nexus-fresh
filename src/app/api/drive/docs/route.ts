@@ -32,7 +32,7 @@ function filterDocuments(files: any[]) {
       'audio/',
       'image/',
       'application/octet-stream',
-      'application/pdf',
+
       'application/zip',
       'application/x-rar-compressed'
     ];
@@ -43,11 +43,12 @@ function filterDocuments(files: any[]) {
     
     if (isExcluded) return false;
     
-    // Only include Google Docs, Sheets, and Presentations
+    // Include Google Docs, Sheets, Presentations, and PDFs
     const allowedTypes = [
       'application/vnd.google-apps.document',
       'application/vnd.google-apps.spreadsheet',
-      'application/vnd.google-apps.presentation'
+      'application/vnd.google-apps.presentation',
+      'application/pdf'
     ];
     
     if (!allowedTypes.includes(file.mimeType)) return false;
@@ -94,6 +95,13 @@ export async function GET(request: NextRequest) {
   try {
     console.log('=== Google Drive API called ===');
     
+    // Get pagination parameters from URL
+    const { searchParams } = new URL(request.url);
+    const pageSize = parseInt(searchParams.get('pageSize') || '50'); // Default to 50 documents per page
+    const pageToken = searchParams.get('pageToken') || undefined;
+    
+    console.log('Pagination params:', { pageSize, pageToken });
+    
     // Check if user is authenticated
     let auth;
     try {
@@ -115,19 +123,25 @@ export async function GET(request: NextRequest) {
     // Build query to get documents with filters
     const query = [
       "trashed = false",
-      "(mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.presentation')",
+      "(mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.presentation' or mimeType='application/pdf')",
       "createdTime > '2020-01-01T00:00:00'"
     ].join(' and ');
     
     console.log('Drive query:', query);
     
-    // Fetch files from Drive
-    const response = await drive.files.list({
+    // Fetch files from Drive with pagination
+    const driveParams: any = {
       q: query,
-      pageSize: 20, // Limit to 20 documents as requested
-      fields: 'files(id,name,mimeType,createdTime,modifiedTime,size,webViewLink,parents)',
+      pageSize: Math.min(pageSize, 100), // Google Drive API max is 1000, but we'll limit to 100 for performance
+      fields: 'nextPageToken,files(id,name,mimeType,createdTime,modifiedTime,size,webViewLink,parents)',
       orderBy: 'createdTime desc'
-    });
+    };
+    
+    if (pageToken) {
+      driveParams.pageToken = pageToken;
+    }
+    
+    const response = await drive.files.list(driveParams);
     
     const files = response.data.files || [];
     console.log(`Found ${files.length} files in Drive`);
@@ -161,6 +175,9 @@ export async function GET(request: NextRequest) {
       success: true,
       documents,
       total: documents.length,
+      nextPageToken: response.data.nextPageToken || null,
+      hasMore: !!response.data.nextPageToken,
+      pageSize: driveParams.pageSize,
       message: `Successfully loaded ${documents.length} documents from Google Drive`
     });
     
@@ -195,7 +212,7 @@ export async function POST(request: NextRequest) {
     console.log('=== Google Drive Search API called ===');
     
     const body = await request.json();
-    const { query, includeContent = false } = body;
+    const { query, includeContent = false, pageSize = 20, pageToken } = body;
     
     // Check if user is authenticated
     let auth;
@@ -224,7 +241,7 @@ export async function POST(request: NextRequest) {
     // Base filters
     const baseFilters = [
       "trashed = false",
-      "(mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.presentation')",
+      "(mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.presentation' or mimeType='application/pdf')",
       "createdTime > '2020-01-01T00:00:00'"
     ];
     
@@ -236,13 +253,24 @@ export async function POST(request: NextRequest) {
     
     console.log('Search query:', finalQuery);
     
-    // Search files in Drive
-    const response = await drive.files.list({
+    // Search files in Drive with pagination
+    const searchParams: any = {
       q: finalQuery,
-      pageSize: 20,
-      fields: 'files(id,name,mimeType,createdTime,modifiedTime,size,webViewLink)',
-      orderBy: 'createdTime desc'
-    });
+      pageSize: Math.min(pageSize, 100),
+      fields: 'nextPageToken,files(id,name,mimeType,createdTime,modifiedTime,size,webViewLink,parents)'
+    };
+    
+    // Google Drive API doesn't allow sorting with fullText searches
+    // Only add orderBy if we're not doing a fullText search
+    if (!searchQuery) {
+      searchParams.orderBy = 'createdTime desc';
+    }
+    
+    if (pageToken) {
+      searchParams.pageToken = pageToken;
+    }
+    
+    const response = await drive.files.list(searchParams);
     
     const files = response.data.files || [];
     console.log(`Search found ${files.length} files`);
@@ -251,22 +279,33 @@ export async function POST(request: NextRequest) {
     const filteredFiles = filterDocuments(files);
     console.log(`After filtering: ${filteredFiles.length} files`);
     
-    // Format documents for frontend
-    const documents = filteredFiles.map(file => ({
-      id: file.id,
-      name: file.name,
-      mimeType: file.mimeType,
-      createdTime: file.createdTime,
-      modifiedTime: file.modifiedTime,
-      size: formatFileSize(file.size || '0'),
-      webViewLink: file.webViewLink,
-      content: `Google ${file.mimeType.includes('document') ? 'Document' : file.mimeType.includes('spreadsheet') ? 'Spreadsheet' : 'Presentation'} containing "${query}" - created on ${new Date(file.createdTime).toLocaleDateString()}`
+    // Format documents for frontend and fetch folder paths
+    const documents = await Promise.all(filteredFiles.map(async (file) => {
+      let folderPath = 'Root';
+      if (file.parents && file.parents.length > 0) {
+        folderPath = await getFolderPath(drive, file.parents[0]);
+      }
+      
+      return {
+        id: file.id,
+        name: file.name,
+        mimeType: file.mimeType,
+        createdTime: file.createdTime,
+        modifiedTime: file.modifiedTime,
+        size: formatFileSize(file.size || '0'),
+        webViewLink: file.webViewLink,
+        folderPath,
+        content: `Google ${file.mimeType.includes('document') ? 'Document' : file.mimeType.includes('spreadsheet') ? 'Spreadsheet' : 'Presentation'} containing "${query}" - created on ${new Date(file.createdTime).toLocaleDateString()}`
+      };
     }));
     
     return NextResponse.json({
       success: true,
       documents,
       total: documents.length,
+      nextPageToken: response.data.nextPageToken || null,
+      hasMore: !!response.data.nextPageToken,
+      pageSize: searchParams.pageSize,
       query: query || '',
       message: `Search completed: found ${documents.length} documents`
     });

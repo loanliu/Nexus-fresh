@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export interface GoogleDocument {
   id: string;
@@ -12,14 +12,25 @@ export interface GoogleDocument {
   content?: string;
 }
 
+interface PaginationInfo {
+  hasMore: boolean;
+  nextPageToken: string | null;
+  pageSize: number;
+  currentPage: number;
+  totalLoaded: number;
+}
+
 interface UseGoogleDocsReturn {
   documents: GoogleDocument[];
   filteredDocuments: GoogleDocument[];
   isLoading: boolean;
+  isLoadingMore: boolean;
   error: string | null;
   searchQuery: string;
+  pagination: PaginationInfo;
   setSearchQuery: (query: string) => void;
-  loadDocuments: () => Promise<void>;
+  loadDocuments: (reset?: boolean) => Promise<void>;
+  loadMoreDocuments: () => Promise<void>;
   searchDocuments: (query: string, includeContent?: boolean) => Promise<void>;
   refreshDocuments: () => Promise<void>;
 }
@@ -29,20 +40,55 @@ export function useGoogleDocs(): UseGoogleDocsReturn {
   const [filteredDocuments, setFilteredDocuments] = useState<GoogleDocument[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    hasMore: false,
+    nextPageToken: null,
+    pageSize: 20,
+    currentPage: 0,
+    totalLoaded: 0
+  });
 
-  // Load all documents
-  const loadDocuments = useCallback(async () => {
+  // Load documents with pagination support
+  const loadDocuments = useCallback(async (reset = true, customPageToken?: string) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const response = await fetch('/api/drive/docs');
+      const url = new URL('/api/drive/docs', window.location.origin);
+      url.searchParams.set('pageSize', '20'); // Fixed page size to 20
+      
+      if (!reset && customPageToken) {
+        url.searchParams.set('pageToken', customPageToken);
+      }
+      
+      const response = await fetch(url.toString());
       const data = await response.json();
       
       if (data.success) {
-        setDocuments(data.documents);
-        setFilteredDocuments(data.documents);
+        if (reset) {
+          setDocuments(data.documents);
+          setFilteredDocuments(data.documents);
+          setPagination(prev => ({
+            ...prev,
+            hasMore: data.hasMore || false,
+            nextPageToken: data.nextPageToken || null,
+            currentPage: 1,
+            totalLoaded: data.documents.length
+          }));
+        } else {
+          // Append new documents for "Load More"
+          setDocuments(prev => [...prev, ...data.documents]);
+          setFilteredDocuments(prev => [...prev, ...data.documents]);
+          setPagination(prev => ({
+            ...prev,
+            hasMore: data.hasMore || false,
+            nextPageToken: data.nextPageToken || null,
+            currentPage: prev.currentPage + 1,
+            totalLoaded: prev.totalLoaded + data.documents.length
+          }));
+        }
       } else {
         throw new Error(data.error || 'Failed to load documents');
       }
@@ -53,7 +99,17 @@ export function useGoogleDocs(): UseGoogleDocsReturn {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, []); // No dependencies to prevent infinite loop
+
+  // Load more documents (append to existing)
+  const loadMoreDocuments = () => {
+    if (isLoadingMore || !pagination.hasMore || !pagination.nextPageToken) {
+      return;
+    }
+    
+    const currentPageToken = pagination.nextPageToken;
+    loadDocuments(false, currentPageToken);
+  };
 
   // Search documents with optional content
   const searchDocuments = useCallback(async (query: string, includeContent = false) => {
@@ -114,19 +170,22 @@ export function useGoogleDocs(): UseGoogleDocsReturn {
     setFilteredDocuments(filtered);
   }, [searchQuery, documents]);
 
-  // Load documents on mount
+  // Load documents on mount - only run once
   useEffect(() => {
-    loadDocuments();
-  }, [loadDocuments]);
+    loadDocuments(true);
+  }, []); // Empty dependency array to run only once on mount
 
   return {
     documents,
     filteredDocuments,
     isLoading,
+    isLoadingMore,
     error,
     searchQuery,
+    pagination,
     setSearchQuery,
     loadDocuments,
+    loadMoreDocuments,
     searchDocuments,
     refreshDocuments,
   };

@@ -11,10 +11,13 @@ export default function GoogleResources() {
     documents,
     filteredDocuments,
     isLoading,
+    isLoadingMore,
     error,
     searchQuery,
+    pagination,
     setSearchQuery,
     loadDocuments,
+    loadMoreDocuments,
     searchDocuments,
     refreshDocuments,
   } = useGoogleDocs();
@@ -80,11 +83,16 @@ export default function GoogleResources() {
       </div>
 
       {/* Results Count */}
-      <div className="mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-gray-600">
-          Showing {filteredDocuments.length} of {documents.length} documents
+          Showing {filteredDocuments.length} documents{pagination.hasMore && ' (more available)'}
           {searchQuery && ` for "${searchQuery}"`}
         </p>
+        {pagination.totalLoaded > 0 && (
+          <p className="text-xs text-gray-500">
+            Loaded {pagination.totalLoaded} documents • Page {pagination.currentPage}
+          </p>
+        )}
       </div>
 
       {/* Loading State */}
@@ -142,16 +150,6 @@ export default function GoogleResources() {
                     {doc.name}
                   </h3>
                   
-                  {/* Folder Path */}
-                  {doc.folderPath && (
-                    <div className="text-sm text-blue-600 font-medium mb-3 flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-5l-2-2H5a2 2 0 00-2 2z" />
-                      </svg>
-                      {doc.folderPath}
-                    </div>
-                  )}
-                  
                   {/* Description */}
                   <p className="text-gray-700 mb-4 leading-relaxed">
                     {doc.content}
@@ -204,6 +202,32 @@ export default function GoogleResources() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Load More Button */}
+      {!isLoading && !isSearching && !error && filteredDocuments.length > 0 && pagination.hasMore && (
+        <div className="mt-8 text-center">
+          <Button
+            onClick={loadMoreDocuments}
+            disabled={isLoadingMore}
+            className="px-8 py-3"
+            variant="outline"
+          >
+            {isLoadingMore ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Loading More...
+              </>
+            ) : (
+              <>
+                Load More Documents
+              </>
+            )}
+          </Button>
+          <p className="text-xs text-gray-500 mt-2">
+            Click to load more documents from your Google Drive
+          </p>
         </div>
       )}
 
