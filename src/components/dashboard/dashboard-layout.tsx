@@ -27,6 +27,7 @@ interface DashboardLayoutProps {
 
 const navigationTabs = [
   { id: 'resources', label: 'Resources', icon: FolderOpen, description: 'Manage files and content' },
+  { id: 'google-resources', label: 'Google Resources', icon: FolderOpen, description: 'Google Drive documents and search' },
   { id: 'categories', label: 'Categories', icon: Tag, description: 'Organize with categories and tags' },
   { id: 'api-keys', label: 'API Keys', icon: Key, description: 'Secure API key management' },
   { id: 'projects', label: 'Projects', icon: Briefcase, description: 'Client project management' },

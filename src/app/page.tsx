@@ -9,6 +9,7 @@ import { ProjectManager } from '@/components/projects/project-manager';
 import { TaskManager } from '@/components/tasks/task-manager';
 import { SearchInterface } from '@/components/search/search-interface';
 import { Analytics } from '@/components/analytics/analytics';
+import GoogleResources from '@/components/google-resources/google-resources';
 import { AuthForm } from '@/components/auth/auth-form';
 import { useAuth } from '@/hooks/use-auth';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -33,6 +34,8 @@ export default function DashboardPage() {
     switch (activeTab) {
       case 'resources':
         return <ResourceManager />;
+      case 'google-resources':
+        return <GoogleResources />;
       case 'categories':
         return <CategoryManager />;
       case 'api-keys':
