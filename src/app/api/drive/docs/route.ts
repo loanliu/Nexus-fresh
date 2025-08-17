@@ -99,8 +99,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const pageSize = parseInt(searchParams.get('pageSize') || '50'); // Default to 50 documents per page
     const pageToken = searchParams.get('pageToken') || undefined;
+    const searchQuery = searchParams.get('q') || undefined;
     
-    console.log('Pagination params:', { pageSize, pageToken });
+    console.log('Pagination params:', { pageSize, pageToken, searchQuery });
     
     // Check if user is authenticated
     let auth;
@@ -121,30 +122,49 @@ export async function GET(request: NextRequest) {
     const drive = google.drive({ version: 'v3', auth });
     
     // Build query to get documents with filters
-    const query = [
+    let query = [
       "trashed = false",
       "(mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.presentation' or mimeType='application/pdf')",
       "createdTime > '2020-01-01T00:00:00'"
-    ].join(' and ');
+    ];
     
-    console.log('Drive query:', query);
-    
-    // Fetch files from Drive with pagination
-    const driveParams: any = {
-      q: query,
-      pageSize: Math.min(pageSize, 100), // Google Drive API max is 1000, but we'll limit to 100 for performance
-      fields: 'nextPageToken,files(id,name,mimeType,createdTime,modifiedTime,size,webViewLink,parents)',
-      orderBy: 'createdTime desc'
-    };
-    
-    if (pageToken) {
-      driveParams.pageToken = pageToken;
+    // Add search query if provided
+    if (searchQuery && searchQuery.trim()) {
+      query.unshift(`(fullText contains '${searchQuery.trim()}')`);
+      console.log('=== Google Drive Search API called ===');
+    } else {
+      console.log('=== Google Drive API called ===');
     }
     
-    const response = await drive.files.list(driveParams);
+    const finalQuery = query.join(' and ');
+    console.log('Search query:', finalQuery);
+    
+         // Fetch files from Drive with pagination
+     const driveParams: any = {
+       q: finalQuery,
+       pageSize: Math.min(pageSize, 100), // Google Drive API max is 1000, but we'll limit to 100 for performance
+       fields: 'nextPageToken,files(id,name,mimeType,createdTime,modifiedTime,size,webViewLink,parents)'
+     };
+     
+     // Google Drive API doesn't allow sorting with fullText searches
+     // Only add orderBy if we're not doing a fullText search
+     if (!searchQuery || !searchQuery.trim()) {
+       driveParams.orderBy = 'createdTime desc';
+     }
+    
+         if (pageToken) {
+       driveParams.pageToken = pageToken;
+     }
+     
+     console.log('Drive API params:', driveParams);
+     const response = await drive.files.list(driveParams);
     
     const files = response.data.files || [];
-    console.log(`Found ${files.length} files in Drive`);
+    if (searchQuery && searchQuery.trim()) {
+      console.log(`Search found ${files.length} files`);
+    } else {
+      console.log(`Found ${files.length} files in Drive`);
+    }
     
     // Apply additional filtering
     const filteredFiles = filterDocuments(files);
@@ -181,30 +201,46 @@ export async function GET(request: NextRequest) {
       message: `Successfully loaded ${documents.length} documents from Google Drive`
     });
     
-  } catch (error) {
-    console.error('=== Error in Google Drive API ===');
-    console.error('Error:', error);
-    
-    if (error instanceof Error && error.message.includes('Authentication required')) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Authentication required',
-          message: 'Please sign in with Google to access your Drive documents'
-        },
-        { status: 401 }
-      );
-    }
-    
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to fetch documents from Google Drive',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
-  }
+     } catch (error) {
+     console.error('=== Error in Google Drive API ===');
+     console.error('Error:', error);
+     
+     if (error instanceof Error && error.message.includes('Authentication required')) {
+       return NextResponse.json(
+         {
+           success: false,
+           error: 'Authentication required',
+           message: 'Please sign in with Google to access your Drive documents'
+         },
+         { status: 401 }
+       );
+     }
+     
+     // Handle Google Drive API specific errors
+     if (error && typeof error === 'object' && 'code' in error) {
+       const googleError = error as any;
+       if (googleError.code === 403 && googleError.message?.includes('Sorting is not supported')) {
+         return NextResponse.json(
+           {
+             success: false,
+             error: 'Search sorting error',
+             message: 'Google Drive search results cannot be sorted. Results are returned by relevance.',
+             details: 'Try searching without sorting options.'
+           },
+           { status: 400 }
+         );
+       }
+     }
+     
+     return NextResponse.json(
+       {
+         success: false,
+         error: 'Failed to fetch documents from Google Drive',
+         details: error instanceof Error ? error.message : 'Unknown error'
+       },
+       { status: 500 }
+     );
+   }
 }
 
 export async function POST(request: NextRequest) {

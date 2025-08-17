@@ -29,12 +29,16 @@ export default function GoogleResources() {
     const timeoutId = setTimeout(() => {
       if (searchQuery.trim()) {
         setIsSearching(true);
-        searchDocuments(searchQuery, true).finally(() => setIsSearching(false));
+        searchDocuments(searchQuery).finally(() => setIsSearching(false));
+      } else if (searchQuery === '') {
+        // Clear search and load all documents
+        setIsSearching(true);
+        loadDocuments().finally(() => setIsSearching(false));
       }
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, searchDocuments]);
+  }, [searchQuery, searchDocuments, loadDocuments]);
 
   const handleFiltersChange = (filters: any) => {
     // Update search query when filters change
@@ -46,7 +50,8 @@ export default function GoogleResources() {
 
   const handleClearFilters = () => {
     setSearchQuery('');
-    // TODO: Reset all filters to defaults
+    setIsSearching(true);
+    loadDocuments().finally(() => setIsSearching(false));
   };
 
   const handleRefresh = async () => {
@@ -155,34 +160,33 @@ export default function GoogleResources() {
                     {doc.content}
                   </p>
                   
-                  {/* Document Details */}
-                  <div className="flex flex-wrap gap-6 text-sm text-gray-500">
-                    <span className="flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      {doc.mimeType.includes('document') ? 'Document' : 
-                       doc.mimeType.includes('spreadsheet') ? 'Spreadsheet' : 'Presentation'}
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      {new Date(doc.createdTime).toLocaleDateString()}
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      {doc.size}
-                    </span>
-                    <span>Size: {doc.size}</span>
-   {doc.folderPath && (
-     <span className="text-blue-600 font-medium flex items-center gap-1">
-       📁 {doc.folderPath}
-     </span>
-   )}
-                  </div>
+                                     {/* Document Details */}
+                   <div className="flex flex-wrap gap-6 text-sm text-gray-500">
+                     <span className="flex items-center gap-2">
+                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                       </svg>
+                       {doc.mimeType.includes('document') ? 'Document' : 
+                        doc.mimeType.includes('spreadsheet') ? 'Spreadsheet' : 'Presentation'}
+                     </span>
+                     <span className="flex items-center gap-2">
+                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                       </svg>
+                       {doc.size}
+                     </span>
+                     <span className="flex items-center gap-2">
+                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                       </svg>
+                       Updated: {new Date(doc.modifiedTime).toLocaleDateString()} {new Date(doc.modifiedTime).toLocaleTimeString()}
+                     </span>
+                     {doc.folderPath && (
+                       <span className="text-blue-600 font-medium flex items-center gap-1">
+                         📁 {doc.folderPath}
+                       </span>
+                     )}
+                   </div>
                 </div>
                 
                 {/* Right Button - Never shrinks, stays aligned */}

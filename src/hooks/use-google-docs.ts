@@ -34,7 +34,7 @@ export function useGoogleDocs() {
 
   const pageSize = 20;
 
-  const loadDocuments = useCallback(async (searchQuery?: string, pageToken?: string) => {
+  const loadDocuments = useCallback(async (query?: string, pageToken?: string) => {
     try {
       if (!pageToken) {
         setLoading(true);
@@ -47,8 +47,10 @@ export function useGoogleDocs() {
       const params = new URLSearchParams({
         pageSize: pageSize.toString(),
         ...(pageToken && { pageToken }),
-        ...(searchQuery && { q: searchQuery })
+        ...(query && { q: query })
       });
+      
+      console.log('API call params:', Object.fromEntries(params));
 
       const response = await fetch(`/api/drive/docs?${params}`, {
         method: 'GET',
@@ -99,6 +101,8 @@ export function useGoogleDocs() {
   };
 
   const searchDocuments = useCallback(async (query: string) => {
+    console.log('Searching for:', query);
+    setSearchQuery(query);
     await loadDocuments(query);
   }, [loadDocuments]);
 
