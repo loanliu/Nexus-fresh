@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Edit, Trash2, Tag, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Edit, Trash2, Tag, FolderOpen, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { useCategories } from '@/hooks/use-categories';
 import { Category, Subcategory, Tag as TagType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { AISubcategoryGenerator } from './ai-subcategory-generator';
 import toast from 'react-hot-toast';
 
 export function CategoryManager() {
@@ -24,7 +25,8 @@ export function CategoryManager() {
     deleteSubcategory,
     addTag,
     updateTag,
-    deleteTag
+    deleteTag,
+    fetchAllSubcategories
   } = useCategories();
 
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -38,6 +40,7 @@ export function CategoryManager() {
     categoryId?: string;
   } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAIGenerator, setShowAIGenerator] = useState<string | null>(null); // categoryId for AI generator
 
   const toggleCategoryExpansion = (categoryId: string) => {
     const newExpanded = new Set(expandedCategories);
@@ -245,6 +248,15 @@ export function CategoryManager() {
                   onClick={() => setShowAddForm({ type: 'subcategory', categoryId: category.id })}
                 >
                   <FolderOpen className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAIGenerator(category.id)}
+                  className="text-purple-600 hover:text-purple-700"
+                  title="Generate subcategories with AI"
+                >
+                  <Sparkles className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -466,6 +478,29 @@ export function CategoryManager() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* AI Subcategory Generator */}
+      {showAIGenerator && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <AISubcategoryGenerator
+              categoryId={showAIGenerator}
+              categoryName={categories.find(c => c.id === showAIGenerator)?.name || ''}
+              categoryDescription={categories.find(c => c.id === showAIGenerator)?.description}
+              onSubcategoriesGenerated={(count) => {
+                if (count > 0) {
+                  toast.success(`${count} subcategories added successfully!`);
+                } else if (count < 0) {
+                  toast.success('Subcategory deleted successfully!');
+                }
+                // Refresh subcategories without full page reload
+                fetchAllSubcategories();
+              }}
+              onClose={() => setShowAIGenerator(null)}
+            />
           </div>
         </div>
       )}

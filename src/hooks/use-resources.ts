@@ -41,7 +41,12 @@ export function useResources() {
 
   // Add new resource
   const addResource = async (resourceData: ResourceFormData): Promise<Resource | null> => {
-    if (!user) return null;
+    console.log('addResource called with:', { resourceData, user });
+    
+    if (!user) {
+      console.log('No user found in addResource');
+      return null;
+    }
 
     try {
       setError(null);
@@ -52,12 +57,16 @@ export function useResources() {
       let fileType: string | undefined;
 
       if (resourceData.file) {
+        console.log('Uploading file to storage:', resourceData.file.name);
+        
         const fileName = `${Date.now()}-${resourceData.file.name}`;
         const filePath = `resources/${user.id}/${fileName}`;
 
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('resources')
           .upload(filePath, resourceData.file);
+
+        console.log('File upload result:', { uploadData, uploadError });
 
         if (uploadError) throw uploadError;
 
@@ -68,32 +77,41 @@ export function useResources() {
         fileUrl = urlData.publicUrl;
         fileSize = resourceData.file.size;
         fileType = resourceData.file.type;
+        
+        console.log('File uploaded successfully:', { fileUrl, fileSize, fileType });
       }
 
       // Create resource record
+      const resourceRecord = {
+        title: resourceData.title,
+        description: resourceData.description,
+        category_id: resourceData.category_id,
+        subcategory: resourceData.subcategory_id, // Note: DB uses 'subcategory' not 'subcategory_id'
+        tags: resourceData.tags,
+        notes: resourceData.notes,
+        file_url: fileUrl,
+        file_size: fileSize,
+        file_type: fileType,
+        user_id: user.id,
+        is_favorite: false,
+      };
+      
+      console.log('Inserting resource record:', resourceRecord);
+
       const { data, error: insertError } = await supabase
         .from('resources')
-        .insert({
-          title: resourceData.title,
-          description: resourceData.description,
-          category_id: resourceData.category_id,
-          subcategory: resourceData.subcategory,
-          tags: resourceData.tags,
-          notes: resourceData.notes,
-          file_url: fileUrl,
-          file_size: fileSize,
-          file_type: fileType,
-          user_id: user.id,
-          is_favorite: false,
-        })
+        .insert(resourceRecord)
         .select()
         .single();
+
+      console.log('Resource insert result:', { data, insertError });
 
       if (insertError) throw insertError;
 
       // Add to local state
       setResources(prev => [data, ...prev]);
 
+      console.log('Resource added successfully:', data);
       return data;
     } catch (err) {
       console.error('Error adding resource:', err);

@@ -85,8 +85,8 @@ export default function GoogleResources() {
       {/* Results Count */}
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-gray-600">
-          Showing {filteredDocuments.length} documents{pagination.hasMore && ' (more available)'}
-          {searchQuery && ` for "${searchQuery}"`}
+          Showing {filteredDocuments?.length || 0} documents{pagination.hasMore && ' (more available)'}
+          {searchQuery && searchQuery.trim() && ` for "${searchQuery}"`}
         </p>
         {pagination.totalLoaded > 0 && (
           <p className="text-xs text-gray-500">
@@ -135,7 +135,7 @@ export default function GoogleResources() {
       )}
 
       {/* Documents List */}
-      {!isLoading && !error && !isSearching && (
+      {!isLoading && !error && !isSearching && filteredDocuments && filteredDocuments.length > 0 && (
         <div className="space-y-4">
           {filteredDocuments.map((doc) => (
             <div
@@ -206,7 +206,7 @@ export default function GoogleResources() {
       )}
 
       {/* Load More Button */}
-      {!isLoading && !isSearching && !error && filteredDocuments.length > 0 && pagination.hasMore && (
+      {!isLoading && !isSearching && !error && filteredDocuments && filteredDocuments.length > 0 && pagination.hasMore && (
         <div className="mt-8 text-center">
           <Button
             onClick={loadMoreDocuments}
@@ -232,14 +232,14 @@ export default function GoogleResources() {
       )}
 
       {/* Empty State */}
-      {!isLoading && !error && !isSearching && filteredDocuments.length === 0 && (
+      {!isLoading && !error && !isSearching && (!filteredDocuments || filteredDocuments.length === 0) && (
         <div className="text-center py-12">
           <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             No documents found
           </h3>
           <p className="text-gray-600">
-            {searchQuery ? 'Try adjusting your search terms.' : 'No documents available.'}
+            {searchQuery && searchQuery.trim() ? 'Try adjusting your search terms.' : 'No documents available.'}
           </p>
         </div>
       )}

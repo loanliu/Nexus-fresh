@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Resource, Category, ResourceFormData } from '@/types';
 import { useCategories } from '@/hooks/use-categories';
 import { useResources } from '@/hooks/use-resources';
+import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'react-hot-toast';
 
 interface ResourceUploadModalProps {
@@ -34,17 +35,29 @@ export function ResourceUploadModal({ isOpen, onClose, onResourceAdded }: Resour
     title: '',
     description: '',
     category_id: '',
-    subcategory: '',
+    subcategory_id: '',
     tags: [],
     notes: '',
   });
   const [newTag, setNewTag] = useState('');
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
 
-  const { categories } = useCategories();
+  const { categories, loading: categoriesLoading, error: categoriesError, createDefaultCategories } = useCategories();
   const { addResource } = useResources();
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
+  // Debug categories loading
+  console.log('Categories in upload modal:', { categories, categoriesLoading, categoriesError });
+  
+  // Debug auth status
+  const { user } = useAuth();
+  console.log('Auth status in upload modal:', { user, userExists: !!user });
+
+  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
+    console.log('Files dropped:', { acceptedFiles: acceptedFiles.length, rejectedFiles: rejectedFiles.length });
+    console.log('Accepted files:', acceptedFiles.map(f => f.name));
+    if (rejectedFiles.length > 0) {
+      console.log('Rejected files:', rejectedFiles);
+    }
     setSelectedFiles(prev => [...prev, ...acceptedFiles]);
   }, []);
 
@@ -62,6 +75,9 @@ export function ResourceUploadModal({ isOpen, onClose, onResourceAdded }: Resour
       'application/json': ['.json'],
     },
     multiple: true,
+    maxFiles: 0, // 0 means no limit in react-dropzone
+    maxSize: Infinity, // No file size limit
+    preventDropOnDocument: true
   });
 
   const removeFile = (index: number) => {
@@ -98,33 +114,63 @@ export function ResourceUploadModal({ isOpen, onClose, onResourceAdded }: Resour
   };
 
   const handleSubmit = async () => {
+    console.log('Upload submit started:', { formData, selectedFiles, user });
+    
     if (!formData.title.trim() || !formData.category_id) {
       toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (!user) {
+      toast.error('Please log in to upload resources');
       return;
     }
 
     setUploadStep('processing');
 
     try {
-      for (const file of selectedFiles) {
+      console.log('Processing files:', selectedFiles.length);
+      let successCount = 0;
+      let failedCount = 0;
+      
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        console.log(`Processing file ${i + 1}/${selectedFiles.length}: ${file.name}`);
+        
         const resourceData: ResourceFormData = {
           ...formData,
           title: formData.title + (selectedFiles.length > 1 ? ` - ${file.name}` : ''),
           file,
         };
 
+        console.log('Uploading resource:', resourceData);
         const resource = await addResource(resourceData);
+        console.log('Upload result:', resource);
+        
         if (resource) {
           onResourceAdded(resource);
+          successCount++;
+          console.log(`✅ Successfully uploaded: ${file.name}`);
+        } else {
+          failedCount++;
+          console.error(`❌ Failed to upload: ${file.name}`);
         }
       }
+      
+      console.log(`Upload complete: ${successCount} successful, ${failedCount} failed`);
 
-      toast.success('Resources uploaded successfully!');
+      if (successCount > 0) {
+        toast.success(`Successfully uploaded ${successCount} resource${successCount > 1 ? 's' : ''}!`);
+      }
+      if (failedCount > 0) {
+        toast.error(`Failed to upload ${failedCount} file${failedCount > 1 ? 's' : ''}`);
+      }
+      
       onClose();
       resetForm();
     } catch (error) {
       console.error('Error uploading resources:', error);
-      toast.error('Failed to upload resources. Please try again.');
+      toast.error(`Failed to upload resources: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setUploadStep('metadata');
     }
   };
@@ -135,7 +181,7 @@ export function ResourceUploadModal({ isOpen, onClose, onResourceAdded }: Resour
       title: '',
       description: '',
       category_id: '',
-      subcategory: '',
+      subcategory_id: '',
       tags: [],
       notes: '',
     });
@@ -209,7 +255,9 @@ export function ResourceUploadModal({ isOpen, onClose, onResourceAdded }: Resour
 
                 {selectedFiles.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className="font-medium text-gray-900 dark:text-white">Selected Files:</h4>
+                    <h4 className="font-medium text-gray-900 dark:text-white">
+                      Selected Files ({selectedFiles.length}):
+                    </h4>
                     {selectedFiles.map((file, index) => (
                       <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                         {getFileIcon(file)}
@@ -258,14 +306,43 @@ export function ResourceUploadModal({ isOpen, onClose, onResourceAdded }: Resour
                       onChange={(e) => setFormData(prev => ({ ...prev, category_id: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                       required
+                      disabled={categoriesLoading}
                     >
-                      <option value="">Select category</option>
+                      <option value="">
+                        {categoriesLoading ? 'Loading categories...' : 
+                         categories.length === 0 ? 'No categories available' : 
+                         'Select category'}
+                      </option>
                       {categories.map(category => (
                         <option key={category.id} value={category.id}>
                           {category.name}
                         </option>
                       ))}
                     </select>
+                    {categoriesError && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                        Error loading categories: {categoriesError}
+                      </p>
+                    )}
+                    {!categoriesLoading && categories.length === 0 && (
+                      <div className="mt-2 space-y-2">
+                        <p className="text-sm text-amber-600 dark:text-amber-400">
+                          No categories found. 
+                        </p>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await createDefaultCategories();
+                          }}
+                          className="text-sm bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md transition-colors"
+                        >
+                          Create Default Categories
+                        </button>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Or create categories manually in the Categories tab.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -376,3 +453,4 @@ export function ResourceUploadModal({ isOpen, onClose, onResourceAdded }: Resour
     </div>
   );
 }
+

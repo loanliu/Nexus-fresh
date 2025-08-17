@@ -5,7 +5,7 @@ export interface Resource {
   description?: string;
   content?: string;
   category_id: string;
-  subcategory?: string;
+  subcategory_id?: string;
   tags: string[];
   file_url?: string;
   file_type?: string;
@@ -251,7 +251,7 @@ export interface ResourceFormData {
   title: string;
   description?: string;
   category_id: string;
-  subcategory?: string;
+  subcategory_id?: string;
   tags: string[];
   notes?: string;
   file?: File;

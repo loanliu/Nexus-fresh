@@ -1,192 +1,125 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
 
 export interface GoogleDocument {
   id: string;
   name: string;
   mimeType: string;
+  description?: string;
+  webViewLink?: string;
+  folderPath?: string;
   createdTime: string;
   modifiedTime: string;
-  size: string;
-  webViewLink: string;
-  folderPath?: string;  // Add this line
-  content?: string;
 }
 
-interface PaginationInfo {
+export interface PaginationInfo {
+  nextPageToken?: string;
   hasMore: boolean;
-  nextPageToken: string | null;
-  pageSize: number;
-  currentPage: number;
   totalLoaded: number;
+  currentPage: number;
 }
 
-interface UseGoogleDocsReturn {
-  documents: GoogleDocument[];
-  filteredDocuments: GoogleDocument[];
-  isLoading: boolean;
-  isLoadingMore: boolean;
-  error: string | null;
-  searchQuery: string;
-  pagination: PaginationInfo;
-  setSearchQuery: (query: string) => void;
-  loadDocuments: (reset?: boolean) => Promise<void>;
-  loadMoreDocuments: () => Promise<void>;
-  searchDocuments: (query: string, includeContent?: boolean) => Promise<void>;
-  refreshDocuments: () => Promise<void>;
-}
-
-export function useGoogleDocs(): UseGoogleDocsReturn {
+export function useGoogleDocs() {
   const [documents, setDocuments] = useState<GoogleDocument[]>([]);
-  const [filteredDocuments, setFilteredDocuments] = useState<GoogleDocument[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [pagination, setPagination] = useState<PaginationInfo>({
     hasMore: false,
-    nextPageToken: null,
-    pageSize: 20,
-    currentPage: 0,
-    totalLoaded: 0
+    totalLoaded: 0,
+    currentPage: 1
   });
 
-  // Load documents with pagination support
-  const loadDocuments = useCallback(async (reset = true, customPageToken?: string) => {
-    setIsLoading(true);
-    setError(null);
-    
+  const pageSize = 20;
+
+  const loadDocuments = useCallback(async (searchQuery?: string, pageToken?: string) => {
     try {
-      const url = new URL('/api/drive/docs', window.location.origin);
-      url.searchParams.set('pageSize', '20'); // Fixed page size to 20
-      
-      if (!reset && customPageToken) {
-        url.searchParams.set('pageToken', customPageToken);
-      }
-      
-      const response = await fetch(url.toString());
-      const data = await response.json();
-      
-      if (data.success) {
-        if (reset) {
-          setDocuments(data.documents);
-          setFilteredDocuments(data.documents);
-          setPagination(prev => ({
-            ...prev,
-            hasMore: data.hasMore || false,
-            nextPageToken: data.nextPageToken || null,
-            currentPage: 1,
-            totalLoaded: data.documents.length
-          }));
-        } else {
-          // Append new documents for "Load More"
-          setDocuments(prev => [...prev, ...data.documents]);
-          setFilteredDocuments(prev => [...prev, ...data.documents]);
-          setPagination(prev => ({
-            ...prev,
-            hasMore: data.hasMore || false,
-            nextPageToken: data.nextPageToken || null,
-            currentPage: prev.currentPage + 1,
-            totalLoaded: prev.totalLoaded + data.documents.length
-          }));
-        }
+      if (!pageToken) {
+        setLoading(true);
+        setDocuments([]);
       } else {
-        throw new Error(data.error || 'Failed to load documents');
+        setIsLoadingMore(true);
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load documents';
-      setError(errorMessage);
-      console.error('Error loading documents:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []); // No dependencies to prevent infinite loop
+      setError(null);
 
-  // Load more documents (append to existing)
-  const loadMoreDocuments = () => {
-    if (isLoadingMore || !pagination.hasMore || !pagination.nextPageToken) {
-      return;
-    }
-    
-    const currentPageToken = pagination.nextPageToken;
-    loadDocuments(false, currentPageToken);
-  };
+      const params = new URLSearchParams({
+        pageSize: pageSize.toString(),
+        ...(pageToken && { pageToken }),
+        ...(searchQuery && { q: searchQuery })
+      });
 
-  // Search documents with optional content
-  const searchDocuments = useCallback(async (query: string, includeContent = false) => {
-    if (!query.trim()) {
-      setFilteredDocuments(documents);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch('/api/drive/docs', {
-        method: 'POST',
+      const response = await fetch(`/api/drive/docs?${params}`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          query: query.trim(),
-          includeContent
-        }),
       });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setFilteredDocuments(data.documents);
-      } else {
-        throw new Error(data.error || 'Search failed');
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Search failed';
-      setError(errorMessage);
-      console.error('Error searching documents:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [documents]);
 
-  // Refresh documents
-  const refreshDocuments = useCallback(async () => {
-    await loadDocuments();
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load documents');
+      }
+
+      if (pageToken) {
+        // Append to existing documents
+        setDocuments(prev => [...prev, ...data.documents]);
+        setPagination(prev => ({
+          nextPageToken: data.nextPageToken,
+          hasMore: !!data.nextPageToken,
+          totalLoaded: prev.totalLoaded + data.documents.length,
+          currentPage: prev.currentPage + 1
+        }));
+      } else {
+        // Replace documents
+        setDocuments(data.documents);
+        setPagination({
+          nextPageToken: data.nextPageToken,
+          hasMore: !!data.nextPageToken,
+          totalLoaded: data.documents.length,
+          currentPage: 1
+        });
+      }
+
+    } catch (err) {
+      console.error('Error loading documents:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load documents');
+    } finally {
+      setLoading(false);
+      setIsLoadingMore(false);
+    }
+  }, []);
+
+  const loadMoreDocuments = () => {
+    if (pagination.nextPageToken && !isLoadingMore) {
+      loadDocuments(undefined, pagination.nextPageToken);
+    }
+  };
+
+  const searchDocuments = useCallback(async (query: string) => {
+    await loadDocuments(query);
   }, [loadDocuments]);
 
-  // Filter documents based on search query
+  // Load initial documents
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredDocuments(documents);
-      return;
-    }
-
-    // Local filtering for better performance
-    const filtered = documents.filter(doc => 
-      doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.content?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    
-    setFilteredDocuments(filtered);
-  }, [searchQuery, documents]);
-
-  // Load documents on mount - only run once
-  useEffect(() => {
-    loadDocuments(true);
-  }, []); // Empty dependency array to run only once on mount
+    loadDocuments();
+  }, [loadDocuments]);
 
   return {
     documents,
-    filteredDocuments,
-    isLoading,
+    filteredDocuments: documents, // For now, filtered documents are the same as documents
+    isLoading: loading,
     isLoadingMore,
     error,
     searchQuery,
-    pagination,
     setSearchQuery,
+    pagination,
     loadDocuments,
     loadMoreDocuments,
     searchDocuments,
-    refreshDocuments,
+    refreshDocuments: () => loadDocuments(),
+    refetch: () => loadDocuments()
   };
 }

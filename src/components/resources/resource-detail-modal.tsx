@@ -53,7 +53,7 @@ export function ResourceDetailModal({
       title: resource.title,
       description: resource.description,
       category_id: resource.category_id,
-      subcategory: resource.subcategory,
+      subcategory_id: resource.subcategory_id,
       tags: [...resource.tags],
       notes: resource.notes,
     });
@@ -256,19 +256,19 @@ export function ResourceDetailModal({
                   )}
                 </div>
 
-                {resource.subcategory && (
+                {resource.subcategory_id && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Subcategory
                     </label>
                     {isEditing ? (
                       <Input
-                        value={editData.subcategory || ''}
-                        onChange={(e) => setEditData(prev => ({ ...prev, subcategory: e.target.value }))}
+                        value={editData.subcategory_id || ''}
+                        onChange={(e) => setEditData(prev => ({ ...prev, subcategory_id: e.target.value }))}
                         placeholder="Enter subcategory"
                       />
                     ) : (
-                      <p className="text-gray-600 dark:text-gray-400">{resource.subcategory}</p>
+                      <p className="text-gray-600 dark:text-gray-400">{resource.subcategory_id}</p>
                     )}
                   </div>
                 )}
