@@ -43,10 +43,18 @@ export function useApiKeys() {
     try {
       setError(null);
 
+      // Clean up empty strings to prevent database errors
+      const cleanedApiKeyData = Object.fromEntries(
+        Object.entries(apiKeyData).map(([key, value]) => [
+          key, 
+          value === '' ? null : value
+        ])
+      );
+
       const { data, error: insertError } = await supabase
         .from('api_keys')
         .insert({
-          ...apiKeyData,
+          ...cleanedApiKeyData,
           user_id: user.id,
         })
         .select()
@@ -70,10 +78,28 @@ export function useApiKeys() {
     try {
       setError(null);
 
+      // Remove fields that shouldn't be updated
+      const { id, created_at, user_id, ...updateData } = updates;
+      
+      // Clean up empty strings to prevent database errors
+      const cleanedUpdateData = Object.fromEntries(
+        Object.entries(updateData).map(([key, value]) => [
+          key, 
+          value === '' ? null : value
+        ])
+      );
+      
+      console.log('Updating API key:', {
+        apiKeyId,
+        userId: user.id,
+        updateData: cleanedUpdateData,
+        fullUpdates: updates
+      });
+
       const { data, error: updateError } = await supabase
         .from('api_keys')
         .update({
-          ...updates,
+          ...cleanedUpdateData,
           updated_at: new Date().toISOString(),
         })
         .eq('id', apiKeyId)
@@ -81,7 +107,10 @@ export function useApiKeys() {
         .select()
         .single();
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Supabase update error:', updateError);
+        throw updateError;
+      }
 
       setApiKeys(prev => 
         prev.map(apiKey => 

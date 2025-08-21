@@ -62,7 +62,13 @@ export function useGoogleDocs() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to load documents');
+        if (response.status === 401) {
+          throw new Error('Authentication required - Please sign in with Google to access your Drive documents');
+        } else if (response.status === 403) {
+          throw new Error('Access denied - Please check your Google Drive permissions');
+        } else {
+          throw new Error(data.error || `Failed to load documents (${response.status})`);
+        }
       }
 
       if (pageToken) {
@@ -87,7 +93,13 @@ export function useGoogleDocs() {
 
     } catch (err) {
       console.error('Error loading documents:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load documents');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load documents';
+      setError(errorMessage);
+      
+      // If it's an authentication error, provide a helpful message
+      if (errorMessage.includes('Authentication required')) {
+        setError('Authentication required - Please sign in with Google to access your Drive documents. Click the "Sign in with Google" button below.');
+      }
     } finally {
       setLoading(false);
       setIsLoadingMore(false);

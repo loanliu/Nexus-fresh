@@ -221,6 +221,7 @@ export function useCategories() {
     deleteCategory,
     createDefaultCategories,
     fetchAllSubcategories,
+    fetchCategories,
     refetch: fetchCategories,
   };
 }
