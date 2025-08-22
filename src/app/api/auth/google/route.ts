@@ -1,33 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { google } from 'googleapis';
 
 export async function GET(request: NextRequest) {
   try {
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI
-    );
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`;
     
-    const scopes = [
-      'https://www.googleapis.com/auth/drive.readonly',
-      'https://www.googleapis.com/auth/userinfo.profile',
-      'https://www.googleapis.com/auth/userinfo.email'
-    ];
+    if (!supabaseUrl) {
+      return NextResponse.redirect(new URL('/auth/error?error=missing_supabase_url', request.url));
+    }
     
-    const authUrl = oauth2Client.generateAuthUrl({
-      access_type: 'offline',
-      scope: scopes,
-      prompt: 'consent'
-    });
+    // Redirect to Supabase's built-in Google OAuth provider
+    const authUrl = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
     
     return NextResponse.redirect(authUrl);
     
   } catch (error) {
-    console.error('Google OAuth initiation error:', error);
-    return NextResponse.json(
-      { error: 'Failed to initiate Google OAuth' },
-      { status: 500 }
-    );
+    console.error('Google OAuth redirect error:', error);
+    return NextResponse.redirect(new URL('/auth/error?error=redirect_failed', request.url));
   }
 }

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { GoogleOAuthButton } from './google-oauth-button';
 
 export function AuthForm() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -25,7 +26,7 @@ export function AuthForm() {
 
     try {
       if (isSignUp) {
-        await signUp(formData.email, formData.password);
+        await signUp(formData.email, formData.password, formData.name);
         toast.success('Account created successfully! Please check your email to verify your account.');
       } else {
         await signIn(formData.email, formData.password);
@@ -62,6 +63,22 @@ export function AuthForm() {
               {isSignUp ? 'Sign in' : 'Sign up'}
             </button>
           </p>
+        </div>
+
+        {/* Google OAuth Button */}
+        <div className="mt-6">
+          <GoogleOAuthButton />
+        </div>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400">
+              Or continue with email
+            </span>
+          </div>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">

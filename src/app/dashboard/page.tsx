@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
 import { ResourceManager } from '@/components/resources/resource-manager';
-import { GoogleResources } from '@/components/google-resources/google-resources';
+import GoogleResources from '@/components/google-resources/google-resources';
 import { CategoryManager } from '@/components/categories/category-manager';
 import { ApiKeyManager } from '@/components/api-keys/api-key-manager';
 import { ProjectManager } from '@/components/projects/project-manager';
