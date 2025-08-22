@@ -55,9 +55,7 @@ export function DocumentCard({ document, onViewDetails, onOpenDocument }: Docume
           >
             {getFileTypeLabel(document.mimeType)}
           </Badge>
-          <Badge variant="outline" className="text-xs">
-            {document.size}
-          </Badge>
+
         </div>
       </div>
       
@@ -66,15 +64,7 @@ export function DocumentCard({ document, onViewDetails, onOpenDocument }: Docume
         {document.name}
       </h3>
       
-      {/* Content Preview */}
-      {document.content && (
-        <p className="text-sm text-gray-600 mb-4 line-clamp-3">
-          {document.content.length > 150 
-            ? `${document.content.substring(0, 150)}...`
-            : document.content
-          }
-        </p>
-      )}
+
       
       {/* Metadata */}
       <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
@@ -102,8 +92,9 @@ export function DocumentCard({ document, onViewDetails, onOpenDocument }: Docume
         
         <Button
           size="sm"
-          onClick={() => onOpenDocument(document.webViewLink)}
+          onClick={() => document.webViewLink && onOpenDocument(document.webViewLink)}
           className="flex-1 flex items-center justify-center gap-2"
+          disabled={!document.webViewLink}
         >
           <ExternalLink className="h-4 w-4" />
           <span>Open</span>

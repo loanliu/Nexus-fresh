@@ -1,13 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
-// Helper function to get OAuth2 client from cookies
-function getGoogleOAuth2Client(request: NextRequest) {
-  const cookies = request.cookies;
-  const accessToken = cookies.get('google_access_token')?.value;
+// Helper function to get OAuth2 client from Supabase user session
+async function getGoogleOAuth2Client(request: NextRequest) {
+  const cookieStore = await cookies();
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
   
-  if (!accessToken) {
-    throw new Error('Authentication required - no access token found');
+  // Try to get the current user session
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  
+  let userId: string;
+  
+  if (sessionError || !session?.user) {
+    // If no session, try to get user ID from the Authorization header
+    const authHeader = request.headers.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      userId = authHeader.replace('Bearer ', '');
+      console.log('Using user ID from Authorization header:', userId);
+    } else {
+      throw new Error('Authentication required - please sign in');
+    }
+  } else {
+    userId = session.user.id;
+    console.log('Using user ID from session:', userId);
+  }
+
+  // Get the user's Google access token from the database
+  const { data: tokenData, error: tokenError } = await supabase
+    .from('google_tokens')
+    .select('access_token, refresh_token, expires_at')
+    .eq('user_id', userId)
+    .single();
+
+  if (tokenError || !tokenData?.access_token) {
+    throw new Error('Google access token not found - please re-authenticate with Google');
+  }
+
+  // Check if token is expired
+  if (tokenData.expires_at && new Date(tokenData.expires_at) <= new Date()) {
+    throw new Error('Google access token expired - please re-authenticate with Google');
   }
 
   const oauth2Client = new google.auth.OAuth2(
@@ -17,7 +50,8 @@ function getGoogleOAuth2Client(request: NextRequest) {
   );
   
   oauth2Client.setCredentials({
-    access_token: accessToken
+    access_token: tokenData.access_token,
+    refresh_token: tokenData.refresh_token
   });
   
   return oauth2Client;
@@ -106,7 +140,7 @@ export async function GET(request: NextRequest) {
     // Check if user is authenticated
     let auth;
     try {
-      auth = getGoogleOAuth2Client(request);
+      auth = await getGoogleOAuth2Client(request);
     } catch (error) {
       return NextResponse.json(
         {
@@ -253,7 +287,7 @@ export async function POST(request: NextRequest) {
     // Check if user is authenticated
     let auth;
     try {
-      auth = getGoogleOAuth2Client(request);
+      auth = await getGoogleOAuth2Client(request);
     } catch (error) {
       return NextResponse.json(
         {

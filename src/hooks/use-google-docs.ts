@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export interface GoogleDocument {
   id: string;
@@ -52,10 +53,18 @@ export function useGoogleDocs() {
       
       console.log('API call params:', Object.fromEntries(params));
 
+      // Get the current user ID for authentication
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('Authentication required - please sign in');
+      }
+
       const response = await fetch(`/api/drive/docs?${params}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.id}`,
         },
       });
 

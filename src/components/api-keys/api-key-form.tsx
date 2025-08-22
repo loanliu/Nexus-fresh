@@ -23,7 +23,7 @@ export function ApiKeyForm({ apiKey, onSubmit, onCancel, isEditing = false }: Ap
     category_id: '',
     expiration_date: '',
     notes: '',
-    status: 'active' as const,
+    status: 'active' as 'active' | 'expired' | 'invalid' | 'testing',
     usage_limits: {
       daily: undefined as number | undefined,
       monthly: undefined as number | undefined,
@@ -48,7 +48,7 @@ export function ApiKeyForm({ apiKey, onSubmit, onCancel, isEditing = false }: Ap
         category_id: apiKey.category_id || '',
         expiration_date: apiKey.expiration_date || '',
         notes: apiKey.notes || '',
-        status: apiKey.status || 'active',
+        status: apiKey.status || 'active' as 'active' | 'expired' | 'invalid' | 'testing',
         usage_limits: {
           daily: apiKey.usage_limits?.daily,
           monthly: apiKey.usage_limits?.monthly,

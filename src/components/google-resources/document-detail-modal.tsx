@@ -98,13 +98,7 @@ export function DocumentDetailModal({ document, isOpen, onClose }: DocumentDetai
                 </span>
               </div>
               
-              <div className="flex items-center space-x-2">
-                <FileText className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-600">Size:</span>
-                <Badge variant="secondary" className="text-xs">
-                  {document.size}
-                </Badge>
-              </div>
+
             </div>
             
             <div className="space-y-3">
@@ -124,20 +118,7 @@ export function DocumentDetailModal({ document, isOpen, onClose }: DocumentDetai
             </div>
           </div>
 
-          {/* Document Content Preview */}
-          {document.content && (
-            <div className="mb-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-3">Content Preview</h3>
-              <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                  {document.content.length > 500 
-                    ? `${document.content.substring(0, 500)}...`
-                    : document.content
-                  }
-                </p>
-              </div>
-            </div>
-          )}
+
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row gap-3">

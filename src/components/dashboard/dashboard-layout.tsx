@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   FolderOpen, 
   Tag, 
@@ -39,6 +39,15 @@ const navigationTabs = [
 export function DashboardLayout({ children, activeTab, onTabChange }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, signOut } = useAuth();
+
+  // Clear Google Drive auth success message from URL
+  useEffect(() => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('google_drive_auth') === 'success') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('google_drive_auth');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -175,6 +184,20 @@ export function DashboardLayout({ children, activeTab, onTabChange }: DashboardL
             </div>
           </div>
         </div>
+
+        {/* Success message for Google Drive auth */}
+        {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('google_drive_auth') === 'success' && (
+          <div className="px-6 py-4 bg-green-50 border-b border-green-200 dark:bg-green-900/20 dark:border-green-800">
+            <div className="flex items-center space-x-3">
+              <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                <CheckSquare className="h-3 w-3 text-white" />
+              </div>
+              <p className="text-sm text-green-800 dark:text-green-200">
+                ✅ Google Drive access granted successfully! You can now view your documents.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Page content */}
         <main className="px-6 py-6">

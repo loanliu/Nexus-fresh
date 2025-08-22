@@ -13,19 +13,11 @@ import toast from 'react-hot-toast';
 export function CategoryManager() {
   const {
     categories,
-    subcategories,
-    tags,
     loading,
     error,
     addCategory,
     updateCategory,
     deleteCategory,
-    addSubcategory,
-    updateSubcategory,
-    deleteSubcategory,
-    addTag,
-    updateTag,
-    deleteTag,
     fetchAllSubcategories
   } = useCategories();
 
@@ -63,7 +55,6 @@ export function CategoryManager() {
         description,
         color: color || '#3B82F6',
         icon: 'folder',
-        user_id: 'default',
         is_default: false,
         sort_order: 0
       });
@@ -76,44 +67,15 @@ export function CategoryManager() {
   };
 
   const handleAddSubcategory = async (formData: FormData) => {
-    try {
-      const name = formData.get('name') as string;
-      const description = formData.get('description') as string;
-      const categoryId = formData.get('categoryId') as string;
-
-      await addSubcategory({
-        name,
-        description,
-        category_id: categoryId,
-        user_id: 'default',
-        sort_order: 0
-      });
-
-      setShowAddForm(null);
-      toast.success('Subcategory added successfully!');
-    } catch (error) {
-      toast.error('Failed to add subcategory');
-    }
+    // TODO: Implement subcategory functionality
+    toast('Subcategory functionality coming soon!');
+    setShowAddForm(null);
   };
 
   const handleAddTag = async (formData: FormData) => {
-    try {
-      const name = formData.get('name') as string;
-      const description = formData.get('description') as string;
-      const categoryId = formData.get('categoryId') as string;
-
-      await addTag({
-        name,
-        description,
-        category_id: categoryId,
-        user_id: 'default'
-      });
-
-      setShowAddForm(null);
-      toast.success('Tag added successfully!');
-    } catch (error) {
-      toast.error('Failed to add tag');
-    }
+    // TODO: Implement tag functionality
+    toast('Tag functionality coming soon!');
+    setShowAddForm(null);
   };
 
   const handleUpdateItem = async (formData: FormData) => {
@@ -127,9 +89,11 @@ export function CategoryManager() {
       if (editingItem.type === 'category') {
         await updateCategory(editingItem.id, { name, description, color });
       } else if (editingItem.type === 'subcategory') {
-        await updateSubcategory(editingItem.id, { name, description });
+        // TODO: Implement subcategory update
+        toast('Subcategory update coming soon!');
       } else if (editingItem.type === 'tag') {
-        await updateTag(editingItem.id, { name, description });
+        // TODO: Implement tag update
+        toast('Tag update coming soon!');
       }
 
       setEditingItem(null);
@@ -146,9 +110,11 @@ export function CategoryManager() {
       if (type === 'category') {
         await deleteCategory(id);
       } else if (type === 'subcategory') {
-        await deleteSubcategory(id);
+        // TODO: Implement subcategory delete
+        toast('Subcategory delete coming soon!');
       } else if (type === 'tag') {
-        await deleteTag(id);
+        // TODO: Implement tag delete
+        toast('Tag delete coming soon!');
       }
 
       toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully!`);
@@ -286,84 +252,24 @@ export function CategoryManager() {
             {/* Expanded Content */}
             {expandedCategories.has(category.id) && (
               <div className="space-y-4 mt-4 pl-6 border-l-2 border-gray-200 dark:border-gray-700">
-                {/* Subcategories */}
+                {/* Subcategories - Coming Soon */}
                 <div>
                   <h4 className="font-medium text-gray-900 dark:text-white mb-2">
                     Subcategories
                   </h4>
-                  <div className="space-y-2">
-                    {subcategories
-                      .filter(sub => sub.category_id === category.id)
-                      .map((subcategory) => (
-                        <div key={subcategory.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                          <span className="text-gray-700 dark:text-gray-300">
-                            {subcategory.name}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEditingItem({ type: 'subcategory', id: subcategory.id, data: subcategory })}
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteItem('subcategory', subcategory.id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    {subcategories.filter(sub => sub.category_id === category.id).length === 0 && (
-                      <p className="text-gray-500 dark:text-gray-400 text-sm">
-                        No subcategories yet
-                      </p>
-                    )}
-                  </div>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    Subcategory functionality coming soon!
+                  </p>
                 </div>
 
-                {/* Tags */}
+                {/* Tags - Coming Soon */}
                 <div>
                   <h4 className="font-medium text-gray-900 dark:text-white mb-2">
                     Tags
                   </h4>
-                  <div className="space-y-2">
-                    {tags
-                      .filter(tag => tag.category_id === category.id)
-                      .map((tag) => (
-                        <div key={tag.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                          <span className="text-gray-700 dark:text-gray-300">
-                            #{tag.name}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEditingItem({ type: 'tag', id: tag.id, data: tag })}
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteItem('tag', tag.id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    {tags.filter(tag => tag.category_id === category.id).length === 0 && (
-                      <p className="text-gray-500 dark:text-gray-400 text-sm">
-                        No tags yet
-                      </p>
-                    )}
-                  </div>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    Tag functionality coming soon!
+                  </p>
                 </div>
               </div>
             )}

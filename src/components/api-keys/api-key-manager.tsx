@@ -73,7 +73,7 @@ export function ApiKeyManager() {
 
   const handleTestApiKey = async (apiKey: ApiKey) => {
     // TODO: Implement API key testing functionality
-    toast.info(`Testing API key: ${apiKey.key_name}`);
+    toast(`Testing API key: ${apiKey.key_name}`);
   };
 
   const filteredApiKeys = apiKeys.filter(apiKey => {
