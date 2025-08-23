@@ -14,10 +14,16 @@ import {
   Plus,
   Settings,
   User,
-  LogOut
+  LogOut,
+  GitCommit,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
+import { TaskManager } from '@/components/task-manager/task-manager';
+import { ProjectManager } from '@/components/projects/project-manager';
+import { CategoryManager } from '@/components/categories/category-manager';
+import { GitHubCommitGenerator } from '@/components/github-commit-generator';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -27,18 +33,20 @@ interface DashboardLayoutProps {
 
 const navigationTabs = [
   { id: 'search', label: 'Search', icon: Search, description: 'Advanced search across all content' },
+  { id: 'task-manager', label: 'Task Manager', icon: CheckSquare, description: 'Manage tasks, projects, and labels' },
   { id: 'resources', label: 'Resources', icon: FolderOpen, description: 'Manage files and content' },
   { id: 'google-resources', label: 'Google Resources', icon: FolderOpen, description: 'Google Drive documents and search' },
   { id: 'categories', label: 'Categories', icon: Tag, description: 'Organize with categories and tags' },
   { id: 'api-keys', label: 'API Keys', icon: Key, description: 'Secure API key management' },
   { id: 'projects', label: 'Projects', icon: Briefcase, description: 'Client project management' },
-  { id: 'tasks', label: 'Tasks', icon: CheckSquare, description: 'Task and checklist management' },
   { id: 'analytics', label: 'Analytics', icon: BarChart3, description: 'Usage statistics and insights' },
+  { id: 'docs', label: 'Documentation', icon: FileText, description: 'Application documentation' },
 ];
 
 export function DashboardLayout({ children, activeTab, onTabChange }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, signOut } = useAuth();
+  const [showCommitGenerator, setShowCommitGenerator] = useState(false);
 
   // Clear Google Drive auth success message from URL
   useEffect(() => {
@@ -162,6 +170,19 @@ export function DashboardLayout({ children, activeTab, onTabChange }: DashboardL
               Sign Out
             </Button>
           </div>
+
+          {/* GitHub Commit Generator Button */}
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => setShowCommitGenerator(true)}
+            >
+              <GitCommit className="h-4 w-4 mr-2" />
+              Generate Commit
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -204,6 +225,12 @@ export function DashboardLayout({ children, activeTab, onTabChange }: DashboardL
           {children}
         </main>
       </div>
+
+      {/* GitHub Commit Generator Modal */}
+      <GitHubCommitGenerator 
+        open={showCommitGenerator} 
+        onClose={() => setShowCommitGenerator(false)} 
+      />
     </div>
   );
 }
