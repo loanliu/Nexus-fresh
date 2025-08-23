@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from './use-auth';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/auth/auth-provider';
 
 export function useAdmin() {
   const [isAdmin, setIsAdmin] = useState(false);

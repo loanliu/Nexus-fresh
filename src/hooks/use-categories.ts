@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Category } from '@/types';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from './use-auth';
+import { Category } from '@/types';
+import { useAuth } from '@/components/auth/auth-provider';
 
 export function useCategories() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -12,7 +12,7 @@ export function useCategories() {
   const { user } = useAuth();
 
   // Fetch categories
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     console.log('fetchCategories called, user:', user);
     
     if (!user) {
@@ -52,10 +52,10 @@ export function useCategories() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   // Add new category
-  const addCategory = async (categoryData: Omit<Category, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
+  const addCategory = useCallback(async (categoryData: Omit<Category, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
     if (!user) return null;
 
     try {
@@ -79,10 +79,10 @@ export function useCategories() {
       setError(err instanceof Error ? err.message : 'Failed to add category');
       return null;
     }
-  };
+  }, [user]);
 
   // Update category
-  const updateCategory = async (categoryId: string, updates: Partial<Category>) => {
+  const updateCategory = useCallback(async (categoryId: string, updates: Partial<Category>) => {
     if (!user) return null;
 
     try {
@@ -113,10 +113,10 @@ export function useCategories() {
       setError(err instanceof Error ? err.message : 'Failed to update category');
       return null;
     }
-  };
+  }, [user]);
 
   // Delete category
-  const deleteCategory = async (categoryId: string) => {
+  const deleteCategory = useCallback(async (categoryId: string) => {
     if (!user) return false;
 
     try {
@@ -137,10 +137,10 @@ export function useCategories() {
       setError(err instanceof Error ? err.message : 'Failed to delete category');
       return false;
     }
-  };
+  }, [user]);
 
   // Create default categories for new users
-  const createDefaultCategories = async () => {
+  const createDefaultCategories = useCallback(async () => {
     if (!user) return false;
 
     try {
@@ -192,14 +192,14 @@ export function useCategories() {
       console.error('Error creating default categories:', err);
       return false;
     }
-  };
+  }, [user, addCategory]);
 
   // Fetch all subcategories (for refreshing after AI generation)
-  const fetchAllSubcategories = async () => {
+  const fetchAllSubcategories = useCallback(async () => {
     // This is a placeholder for the subcategory refresh functionality
     // It can be called after subcategory operations to refresh the parent component
     return true;
-  };
+  }, []);
 
   // Initialize
   useEffect(() => {
@@ -210,7 +210,7 @@ export function useCategories() {
     }
 
     fetchCategories();
-  }, [user]);
+  }, [user, fetchCategories]);
 
   return {
     categories,

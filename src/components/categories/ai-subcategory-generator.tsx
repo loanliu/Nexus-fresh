@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useSubcategories } from '@/hooks/use-subcategories';
+import { useAuth } from '@/components/auth/auth-provider';
 import { Sparkles, Loader2, CheckCircle, AlertCircle, X, Trash2, Plus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'react-hot-toast';
@@ -38,6 +39,7 @@ export function AISubcategoryGenerator({
   const [loadingExisting, setLoadingExisting] = useState(true);
   
   const { generateSubcategories, addSubcategory, deleteSubcategory, fetchSubcategories } = useSubcategories();
+  const { user } = useAuth();
 
   // Load existing subcategories on component mount
   useEffect(() => {
@@ -152,7 +154,9 @@ export function AISubcategoryGenerator({
             description: subcategory.description,
             category_id: categoryId,
             color: `#${Math.floor(Math.random()*16777215).toString(16)}`, // Random color
-            icon: 'folder' // Default icon
+            icon: 'folder', // Default icon
+            user_id: user?.id || '',
+            sort_order: (existingSubcategories?.length || 0) + 1
           });
 
           if (result) {

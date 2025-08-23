@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Resource, ResourceFormData } from '@/types';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from './use-auth';
+import { Resource, ResourceFormData } from '@/types';
+import { useAuth } from '@/components/auth/auth-provider';
 
 export function useResources() {
   const [resources, setResources] = useState<Resource[]>([]);
@@ -12,7 +12,7 @@ export function useResources() {
   const { user } = useAuth();
 
   // Fetch resources
-  const fetchResources = async () => {
+  const fetchResources = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -37,10 +37,10 @@ export function useResources() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   // Add new resource
-  const addResource = async (resourceData: ResourceFormData): Promise<Resource | null> => {
+  const addResource = useCallback(async (resourceData: ResourceFormData): Promise<Resource | null> => {
     console.log('addResource called with:', { resourceData, user });
     
     if (!user) {
@@ -118,10 +118,10 @@ export function useResources() {
       setError(err instanceof Error ? err.message : 'Failed to add resource');
       return null;
     }
-  };
+  }, [user]);
 
   // Update resource
-  const updateResource = async (resourceId: string, updates: Partial<Resource>): Promise<Resource | null> => {
+  const updateResource = useCallback(async (resourceId: string, updates: Partial<Resource>): Promise<Resource | null> => {
     if (!user) return null;
 
     try {
@@ -153,10 +153,10 @@ export function useResources() {
       setError(err instanceof Error ? err.message : 'Failed to update resource');
       return null;
     }
-  };
+  }, [user]);
 
   // Delete resource
-  const deleteResource = async (resourceId: string): Promise<boolean> => {
+  const deleteResource = useCallback(async (resourceId: string): Promise<boolean> => {
     if (!user) return false;
 
     try {
@@ -190,10 +190,10 @@ export function useResources() {
       setError(err instanceof Error ? err.message : 'Failed to delete resource');
       return false;
     }
-  };
+  }, [user, resources]);
 
   // Toggle favorite
-  const toggleFavorite = async (resourceId: string): Promise<boolean> => {
+  const toggleFavorite = useCallback(async (resourceId: string): Promise<boolean> => {
     const resource = resources.find(r => r.id === resourceId);
     if (!resource) return false;
 
@@ -205,10 +205,10 @@ export function useResources() {
     } catch (err) {
       return false;
     }
-  };
+  }, [resources, updateResource]);
 
   // Search resources
-  const searchResources = async (query: string, filters?: {
+  const searchResources = useCallback(async (query: string, filters?: {
     categories?: string[];
     tags?: string[];
     fileTypes?: string[];
@@ -250,24 +250,24 @@ export function useResources() {
       console.error('Error searching resources:', err);
       return [];
     }
-  };
+  }, [user]);
 
   // Get resources by category
-  const getResourcesByCategory = (categoryId: string): Resource[] => {
+  const getResourcesByCategory = useCallback((categoryId: string): Resource[] => {
     return resources.filter(resource => resource.category_id === categoryId);
-  };
+  }, [resources]);
 
   // Get favorite resources
-  const getFavoriteResources = (): Resource[] => {
+  const getFavoriteResources = useCallback((): Resource[] => {
     return resources.filter(resource => resource.is_favorite);
-  };
+  }, [resources]);
 
   // Get recent resources
-  const getRecentResources = (limit: number = 10): Resource[] => {
+  const getRecentResources = useCallback((limit: number = 10): Resource[] => {
     return resources
       .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
       .slice(0, limit);
-  };
+  }, [resources]);
 
   // Initialize and set up real-time subscription
   useEffect(() => {
@@ -309,7 +309,7 @@ export function useResources() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [user]);
+  }, [user, fetchResources]);
 
   return {
     resources,

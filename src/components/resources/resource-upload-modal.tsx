@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Resource, Category, ResourceFormData } from '@/types';
 import { useCategories } from '@/hooks/use-categories';
 import { useResources } from '@/hooks/use-resources';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/components/auth/auth-provider';
 import { toast } from 'react-hot-toast';
 
 interface ResourceUploadModalProps {

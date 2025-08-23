@@ -32,10 +32,18 @@ export function useGoogleDocs() {
     totalLoaded: 0,
     currentPage: 1
   });
+  const [isClient, setIsClient] = useState(false);
 
   const pageSize = 20;
 
+  // Ensure we're on the client side
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const loadDocuments = useCallback(async (query?: string, pageToken?: string) => {
+    if (!isClient) return; // Don't make API calls during SSR
+    
     try {
       if (!pageToken) {
         setLoading(true);
@@ -113,24 +121,28 @@ export function useGoogleDocs() {
       setLoading(false);
       setIsLoadingMore(false);
     }
-  }, []);
+  }, [isClient]);
 
   const loadMoreDocuments = () => {
+    if (!isClient) return; // Don't execute during SSR
     if (pagination.nextPageToken && !isLoadingMore) {
       loadDocuments(undefined, pagination.nextPageToken);
     }
   };
 
   const searchDocuments = useCallback(async (query: string) => {
+    if (!isClient) return; // Don't execute during SSR
     console.log('Searching for:', query);
     setSearchQuery(query);
     await loadDocuments(query);
-  }, [loadDocuments]);
+  }, [loadDocuments, isClient]);
 
-  // Load initial documents
+  // Load initial documents only on client
   useEffect(() => {
-    loadDocuments();
-  }, [loadDocuments]);
+    if (isClient) {
+      loadDocuments();
+    }
+  }, [loadDocuments, isClient]);
 
   return {
     documents,

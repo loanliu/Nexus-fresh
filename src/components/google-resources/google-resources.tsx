@@ -8,6 +8,7 @@ import { SearchFilters } from './search-filters';
 import GoogleDriveAuth from './google-drive-auth';
 
 export default function GoogleResources() {
+  const [isClient, setIsClient] = useState(false);
   const {
     documents,
     filteredDocuments,
@@ -25,8 +26,15 @@ export default function GoogleResources() {
 
   const [isSearching, setIsSearching] = useState(false);
 
+  // Prevent hydration mismatch by only rendering on client
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   // Handle search with debouncing
   useEffect(() => {
+    if (!isClient) return; // Don't run effects until client-side
+    
     const timeoutId = setTimeout(() => {
       if (searchQuery.trim()) {
         setIsSearching(true);
@@ -39,7 +47,25 @@ export default function GoogleResources() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, searchDocuments, loadDocuments]);
+  }, [searchQuery, searchDocuments, loadDocuments, isClient]);
+
+  // Don't render anything until client-side to prevent hydration mismatch
+  if (!isClient) {
+    return (
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Google Resources
+        </h1>
+        <p className="text-gray-600">
+          Search and manage your Google Drive documents, excluding videos, audio, and files created before 2020.
+        </p>
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleFiltersChange = (filters: any) => {
     // Update search query when filters change

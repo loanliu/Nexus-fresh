@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ApiKey } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from './use-auth';
+import { useAuth } from '@/components/auth/auth-provider';
+import { SimpleEncryption } from '@/lib/simple-encryption';
 
 export function useApiKeys() {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -12,7 +13,7 @@ export function useApiKeys() {
   const { user } = useAuth();
 
   // Fetch API keys
-  const fetchApiKeys = async () => {
+  const fetchApiKeys = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -23,38 +24,60 @@ export function useApiKeys() {
         .from('api_keys')
         .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('key_name', { ascending: true });
 
       if (fetchError) throw fetchError;
 
-      setApiKeys(data || []);
+      // Decrypt API keys using simple encryption
+      const decryptedApiKeys = (data || []).map((apiKey) => {
+        try {
+          const decryptedKey = SimpleEncryption.decrypt(apiKey.encrypted_key);
+          return {
+            ...apiKey,
+            encrypted_key: decryptedKey
+          };
+        } catch (err) {
+          console.error('Failed to decrypt API key:', err);
+          return {
+            ...apiKey,
+            encrypted_key: '[ENCRYPTED]'
+          };
+        }
+      });
+
+      setApiKeys(decryptedApiKeys);
     } catch (err) {
       console.error('Error fetching API keys:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch API keys');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   // Add new API key
-  const addApiKey = async (apiKeyData: Omit<ApiKey, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
+  const addApiKey = useCallback(async (apiKeyData: Omit<ApiKey, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
     if (!user) return null;
 
     try {
       setError(null);
 
-      // Clean up empty strings to prevent database errors
+      // Clean up empty strings to prevent database errors, but preserve the API key
+      const { encrypted_key: plaintextKey, ...otherData } = apiKeyData;
       const cleanedApiKeyData = Object.fromEntries(
-        Object.entries(apiKeyData).map(([key, value]) => [
+        Object.entries(otherData).map(([key, value]) => [
           key, 
           value === '' ? null : value
         ])
       );
 
+      // Encrypt the API key using simple encryption
+      const encryptedKey = plaintextKey ? SimpleEncryption.encrypt(plaintextKey) : '';
+
       const { data, error: insertError } = await supabase
         .from('api_keys')
         .insert({
           ...cleanedApiKeyData,
+          encrypted_key: encryptedKey,
           user_id: user.id,
         })
         .select()
@@ -62,17 +85,27 @@ export function useApiKeys() {
 
       if (insertError) throw insertError;
 
-      setApiKeys(prev => [data, ...prev]);
-      return data;
+      // Add to local state for display
+      const displayApiKey = {
+        ...data,
+        encrypted_key: plaintextKey // Show original key for display
+      };
+
+      setApiKeys(prev => {
+        const newKeys = [displayApiKey, ...prev];
+        // Sort by key_name alphabetically
+        return newKeys.sort((a, b) => (a.key_name || '').localeCompare(b.key_name || ''));
+      });
+      return displayApiKey;
     } catch (err) {
       console.error('Error adding API key:', err);
       setError(err instanceof Error ? err.message : 'Failed to add API key');
       return null;
     }
-  };
+  }, [user]);
 
   // Update API key
-  const updateApiKey = async (apiKeyId: string, updates: Partial<ApiKey>) => {
+  const updateApiKey = useCallback(async (apiKeyId: string, updates: Partial<ApiKey>) => {
     if (!user) return null;
 
     try {
@@ -88,6 +121,11 @@ export function useApiKeys() {
           value === '' ? null : value
         ])
       );
+      
+      // If the API key is being updated, encrypt it
+      if (cleanedUpdateData.encrypted_key && typeof cleanedUpdateData.encrypted_key === 'string') {
+        cleanedUpdateData.encrypted_key = SimpleEncryption.encrypt(cleanedUpdateData.encrypted_key);
+      }
       
       console.log('Updating API key:', {
         apiKeyId,
@@ -112,22 +150,28 @@ export function useApiKeys() {
         throw updateError;
       }
 
+      // Update local state
+      const updatedApiKey = {
+        ...data,
+        encrypted_key: updates.encrypted_key || data.encrypted_key
+      };
+
       setApiKeys(prev => 
         prev.map(apiKey => 
-          apiKey.id === apiKeyId ? { ...apiKey, ...data } : apiKey
+          apiKey.id === apiKeyId ? updatedApiKey : apiKey
         )
       );
 
-      return data;
+      return updatedApiKey;
     } catch (err) {
       console.error('Error updating API key:', err);
       setError(err instanceof Error ? err.message : 'Failed to update API key');
       return null;
     }
-  };
+  }, [user]);
 
   // Delete API key
-  const deleteApiKey = async (apiKeyId: string) => {
+  const deleteApiKey = useCallback(async (apiKeyId: string) => {
     if (!user) return false;
 
     try {
@@ -146,20 +190,19 @@ export function useApiKeys() {
     } catch (err) {
       console.error('Error deleting API key:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete API key');
-      return false;
+      return null;
     }
-  };
+  }, [user]);
 
-  // Initialize
+  // Initialize - fetch keys once when user is available
   useEffect(() => {
-    if (!user) {
+    if (user) {
+      fetchApiKeys();
+    } else {
       setApiKeys([]);
       setLoading(false);
-      return;
     }
-
-    fetchApiKeys();
-  }, [user]);
+  }, [user, fetchApiKeys]);
 
   return {
     apiKeys,

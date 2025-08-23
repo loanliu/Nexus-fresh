@@ -15,11 +15,10 @@ import {
   Settings,
   User,
   LogOut,
-  GitCommit,
-  FileText
+  GitCommit
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/components/auth/auth-provider';
 import { TaskManager } from '@/components/task-manager/task-manager';
 import { ProjectManager } from '@/components/projects/project-manager';
 import { CategoryManager } from '@/components/categories/category-manager';
@@ -40,20 +39,24 @@ const navigationTabs = [
   { id: 'api-keys', label: 'API Keys', icon: Key, description: 'Secure API key management' },
   { id: 'projects', label: 'Projects', icon: Briefcase, description: 'Client project management' },
   { id: 'analytics', label: 'Analytics', icon: BarChart3, description: 'Usage statistics and insights' },
-  { id: 'docs', label: 'Documentation', icon: FileText, description: 'Application documentation' },
 ];
 
 export function DashboardLayout({ children, activeTab, onTabChange }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [showCommitGenerator, setShowCommitGenerator] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+  const [showGoogleAuthSuccess, setShowGoogleAuthSuccess] = useState(false);
 
-  // Clear Google Drive auth success message from URL
+  // Set up client state and show Google Drive auth success message
   useEffect(() => {
+    setIsClient(true);
+    
     if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('google_drive_auth') === 'success') {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('google_drive_auth');
-      window.history.replaceState({}, '', url.toString());
+      setShowGoogleAuthSuccess(true);
+      
+      // Hide success message after 5 seconds
+      setTimeout(() => setShowGoogleAuthSuccess(false), 5000);
     }
   }, []);
 
@@ -64,6 +67,18 @@ export function DashboardLayout({ children, activeTab, onTabChange }: DashboardL
       console.error('Error signing out:', error);
     }
   };
+
+  // Show loading state while authentication is loading
+  if (authLoading || !isClient) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
@@ -207,7 +222,7 @@ export function DashboardLayout({ children, activeTab, onTabChange }: DashboardL
         </div>
 
         {/* Success message for Google Drive auth */}
-        {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('google_drive_auth') === 'success' && (
+        {isClient && showGoogleAuthSuccess && (
           <div className="px-6 py-4 bg-green-50 border-b border-green-200 dark:bg-green-900/20 dark:border-green-800">
             <div className="flex items-center space-x-3">
               <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">

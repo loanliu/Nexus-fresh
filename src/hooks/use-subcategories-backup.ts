@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from './use-auth';
+import { useAuth } from '@/components/auth/auth-provider';
 
 export interface Subcategory {
   id: string;

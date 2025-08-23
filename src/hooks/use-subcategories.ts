@@ -2,18 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from './use-auth';
+import { Subcategory } from '@/types';
+import { useAuth } from '@/components/auth/auth-provider';
 
-export interface Subcategory {
-  id: string;
-  name: string;
-  description?: string;
-  category_id: string;
-  color: string;
-  icon: string;
-  created_at: string;
-  updated_at: string;
-}
+
 
 export function useSubcategories(categoryId?: string) {
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
