@@ -10,8 +10,9 @@ import { CategoryManager } from '@/components/categories/category-manager';
 import { ProjectManager } from '@/components/projects/project-manager';
 import { Analytics } from '@/components/analytics/analytics';
 import { ResourceManager } from '@/components/resources/resource-manager';
+import { FeedbackPage } from '@/components/feedback/feedback-page';
 
-type Tab = 'search' | 'resources' | 'google-resources' | 'task-manager' | 'api-keys' | 'categories' | 'projects' | 'analytics';
+type Tab = 'search' | 'resources' | 'google-resources' | 'task-manager' | 'api-keys' | 'categories' | 'projects' | 'analytics' | 'feedback';
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>('search');
@@ -59,6 +60,8 @@ export default function DashboardPage() {
         return <ProjectManager />;
       case 'analytics':
         return <Analytics />;
+      case 'feedback':
+        return <FeedbackPage />;
       default:
         return <AdvancedSearch onTabChange={handleTabChange} />;
     }

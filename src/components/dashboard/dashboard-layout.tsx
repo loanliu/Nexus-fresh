@@ -15,7 +15,8 @@ import {
   Settings,
   User,
   LogOut,
-  GitCommit
+  GitCommit,
+  MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/components/auth/auth-provider';
@@ -39,6 +40,7 @@ const navigationTabs = [
   { id: 'api-keys', label: 'API Keys', icon: Key, description: 'Secure API key management' },
   { id: 'projects', label: 'Projects', icon: Briefcase, description: 'Client project management' },
   { id: 'analytics', label: 'Analytics', icon: BarChart3, description: 'Usage statistics and insights' },
+  { id: 'feedback', label: 'Feedback', icon: MessageSquare, description: 'Share your thoughts and suggestions' },
 ];
 
 export function DashboardLayout({ children, activeTab, onTabChange }: DashboardLayoutProps) {
