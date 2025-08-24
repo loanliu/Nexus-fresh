@@ -12,10 +12,10 @@ import { Analytics } from '@/components/analytics/analytics';
 import { ResourceManager } from '@/components/resources/resource-manager';
 import { FeedbackPage } from '@/components/feedback/feedback-page';
 
-type Tab = 'search' | 'resources' | 'google-resources' | 'task-manager' | 'api-keys' | 'categories' | 'projects' | 'analytics' | 'feedback';
+type Tab = 'search' | 'projects' | 'resources' | 'google-resources' | 'api-keys' | 'analytics' | 'feedback' | 'task-manager' | 'categories';
 
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('search');
+  const [activeTab, setActiveTab] = useState<Tab>('projects');
 
   // Auto-switch to Google Resources tab after successful Google Drive authentication
   useEffect(() => {
