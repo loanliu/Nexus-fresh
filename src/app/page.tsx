@@ -10,13 +10,14 @@ import { TaskManager } from '@/components/task-manager/task-manager';
 import { AdvancedSearch } from '@/components/search/advanced-search';
 import { Analytics } from '@/components/analytics/analytics';
 import GoogleResources from '@/components/google-resources/google-resources';
+import { FeedbackPage } from '@/components/feedback/feedback-page';
 import { AuthForm } from '@/components/auth/auth-form';
 import { useAuth } from '@/components/auth/auth-provider';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState('resources');
+  const [activeTab, setActiveTab] = useState('projects');
 
   if (loading) {
     return (
@@ -48,8 +49,10 @@ export default function DashboardPage() {
         return <AdvancedSearch onTabChange={setActiveTab} />;
       case 'analytics':
         return <Analytics />;
+      case 'feedback':
+        return <FeedbackPage />;
       default:
-        return <ResourceManager />;
+        return <ProjectManager />;
     }
   };
 
