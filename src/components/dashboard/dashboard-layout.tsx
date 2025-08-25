@@ -36,12 +36,11 @@ const navigationTabs = [
   { id: 'projects', label: 'Projects', icon: Briefcase, description: 'Client project management' },
   { id: 'resources', label: 'Resources', icon: FolderOpen, description: 'Manage files and content' },
   { id: 'google-resources', label: 'Google Resources', icon: FolderOpen, description: 'Google Drive documents and search' },
+  { id: 'task-manager', label: 'Task Manager', icon: CheckSquare, description: 'Manage tasks, projects, and labels' },
+  { id: 'categories', label: 'Categories', icon: Tag, description: 'Organize with categories and tags' },
   { id: 'api-keys', label: 'API Keys', icon: Key, description: 'Secure API key management' },
   { id: 'analytics', label: 'Analytics', icon: BarChart3, description: 'Usage statistics and insights' },
   { id: 'feedback', label: 'Feedback', icon: MessageSquare, description: 'Share your thoughts and suggestions' },
-  // Hidden tabs (keep code but remove from navigation)
-  // { id: 'task-manager', label: 'Task Manager', icon: CheckSquare, description: 'Manage tasks, projects, and labels' },
-  // { id: 'categories', label: 'Categories', icon: Tag, description: 'Organize with categories and tags' },
 ];
 
 export function DashboardLayout({ children, activeTab, onTabChange }: DashboardLayoutProps) {
@@ -189,7 +188,7 @@ export function DashboardLayout({ children, activeTab, onTabChange }: DashboardL
             </Button>
           </div>
 
-          {/* GitHub Commit Generator Button */}
+          {/* GitHub Commit Generator Button 
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <Button
               variant="outline"
@@ -200,9 +199,9 @@ export function DashboardLayout({ children, activeTab, onTabChange }: DashboardL
               <GitCommit className="h-4 w-4 mr-2" />
               Generate Commit
             </Button>
-          </div>
+          </div>*/}
         </div>
-      </div>
+      </div> 
 
       {/* Main content */}
       <div className="flex-1 min-w-0 lg:pl-0">

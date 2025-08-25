@@ -37,17 +37,14 @@ export function FeedbackForm({ onClose, className = '' }: FeedbackFormProps) {
     setIsSubmitting(true);
     
     try {
-      // n8n webhook URL for feedback
-      const webhookUrl = 'https://loanliu.app.n8n.cloud/webhook-test/8bc98d75-a611-46e6-b7f5-a5c12b3b3299';
-      
-      const response = await fetch(webhookUrl, {
+      // Use our proxy API to avoid CORS issues
+      const response = await fetch('/api/feedback/submit', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           feedback: feedback.trim(),
-          timestamp: new Date().toISOString(),
           userAgent: navigator.userAgent,
           url: window.location.href,
         }),

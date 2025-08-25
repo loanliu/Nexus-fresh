@@ -34,6 +34,7 @@ export const projectManagementClient = {
         tasks (
           id,
           title,
+          description,
           status,
           priority,
           due_date,
@@ -97,6 +98,7 @@ export const projectManagementClient = {
           tasks (
             id,
             title,
+            description,
             status,
             priority,
             due_date,

@@ -130,7 +130,7 @@ export function ProjectTemplates({ onTemplateUse }: ProjectTemplatesProps) {
         description: '',
         priority: 'medium',
         effort: 3,
-        estimated_hours: 1
+        estimated_hours: 8
       }]
     }));
   };
@@ -393,7 +393,7 @@ export function ProjectTemplates({ onTemplateUse }: ProjectTemplatesProps) {
 
                         <input
                           type="number"
-                          value={task.estimated_hours || 0}
+                          value={task.estimated_hours || 8}
                           onChange={(e) => updateTaskInTemplate(index, 'estimated_hours', parseInt(e.target.value) || 0)}
                           className="px-2 py-1 border border-gray-300 rounded text-xs"
                           placeholder="Hours"
@@ -554,7 +554,7 @@ export function ProjectTemplates({ onTemplateUse }: ProjectTemplatesProps) {
 
                         <input
                           type="number"
-                          value={task.estimated_hours || 0}
+                          value={task.estimated_hours || 8}
                           onChange={(e) => updateTaskInTemplate(index, 'estimated_hours', parseInt(e.target.value) || 0)}
                           className="px-2 py-1 border border-gray-300 rounded text-xs"
                           placeholder="Hours"

@@ -2,3 +2,9 @@
  .../google-resources/google-resources.tsx          |  66 [32m++++++[m[31m------[m
  src/hooks/use-google-docs.ts                       |   8 [32m+[m[31m-[m
  3 files changed, 118 insertions(+), 74 deletions(-)
+  Version-1.0[m
+  Week1[m
+  branch2[m
+* [32mmagiclink[m
+  master[m
+  taskmanager[m

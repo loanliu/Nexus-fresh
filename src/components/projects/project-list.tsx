@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
   FolderOpen, 
@@ -17,8 +17,10 @@ import {
   X
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { Project, Task } from '@/types/project-management';
 import { useUpdateProject, useDeleteProject, useArchiveProject, useUpdateTask, useDeleteTask, useCreateTask } from '@/hooks/use-project-management';
+import { projectManagementClient } from '@/lib/project-management-client';
 import { CreateProjectModal } from './create-project-modal';
 import { NaturalLanguageTaskCapture } from './natural-language-task-capture';
 
@@ -35,9 +37,24 @@ export function ProjectList({ projects }: ProjectListProps) {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [showEditTaskModal, setShowEditTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isRefreshingProject, setIsRefreshingProject] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  
+  const queryClient = useQueryClient();
   
   // Debug logging
   console.log('ProjectList received projects:', projects);
+  
+  // Auto-update currentProject when projects prop changes (for refresh functionality)
+  useEffect(() => {
+    if (currentProject && projects.length > 0) {
+      const freshProject = projects.find(p => p.id === currentProject.id);
+      if (freshProject && JSON.stringify(freshProject) !== JSON.stringify(currentProject)) {
+        console.log('Auto-updating currentProject with fresh data:', freshProject);
+        setCurrentProject(freshProject);
+      }
+    }
+  }, [projects, currentProject]);
   
   const updateProject = useUpdateProject();
   const deleteProject = useDeleteProject();
@@ -100,8 +117,84 @@ export function ProjectList({ projects }: ProjectListProps) {
     setShowSubtasksModal(true);
   };
 
+  const refreshSubtasksModal = async () => {
+    if (currentProject?.id) {
+      setIsRefreshingProject(true);
+      try {
+        // Force invalidate and refetch the projects data
+        await queryClient.invalidateQueries({ queryKey: ['projects'] });
+        await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        
+        // Wait a bit for the data to refetch
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Force refetch the projects data
+        await queryClient.refetchQueries({ queryKey: ['projects'] });
+        
+        console.log('Projects data refetched, modal should update automatically');
+      } catch (error) {
+        console.error('Error refreshing subtasks modal:', error);
+      } finally {
+        setIsRefreshingProject(false);
+      }
+    }
+  };
+
+  const forceRefreshSubtasksModal = async () => {
+    if (currentProject?.id) {
+      console.log('Force refreshing subtasks modal...');
+      
+      // Temporarily close the modal
+      setShowSubtasksModal(false);
+      
+      // Wait a bit for the modal to close
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Force invalidate and refetch the projects data
+      try {
+        await queryClient.invalidateQueries({ queryKey: ['projects'] });
+        await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        
+        // Wait a bit for the data to refetch
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Force refetch the projects data
+        await queryClient.refetchQueries({ queryKey: ['projects'] });
+        
+        // Wait a bit more for the data to be available
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        console.log('Projects data refetched, reopening modal...');
+        
+        // Reopen the modal - the projects prop should now have fresh data
+        setShowSubtasksModal(true);
+        
+      } catch (error) {
+        console.error('Error force refreshing modal:', error);
+        // Reopen modal even if refresh failed
+        setShowSubtasksModal(true);
+      }
+    }
+  };
+
   const handleEditTask = (task: Task) => {
-    setEditingTask(task);
+    // Always use fresh task data from the projects prop (which comes from React Query)
+    // Find the project that contains this task
+    const projectWithTask = projects.find(project => 
+      project.tasks?.some(t => t.id === task.id)
+    );
+    
+    // Get the fresh task data from the project
+    const freshTask = projectWithTask?.tasks?.find(t => t.id === task.id) || task;
+    
+    console.log('Opening edit modal for task:', { 
+      originalTask: task, 
+      freshTask, 
+      projectWithTask: projectWithTask?.id,
+      allProjects: projects.map(p => ({ id: p.id, taskCount: p.tasks?.length || 0 }))
+    });
+    
+    setEditingTask(freshTask);
     setShowEditTaskModal(true);
   };
 
@@ -167,7 +260,31 @@ export function ProjectList({ projects }: ProjectListProps) {
       
       setShowEditTaskModal(false);
       setEditingTask(null);
-      // The React Query cache will automatically update
+      
+      // Force a complete refresh by updating the refresh key
+      setRefreshKey(prev => prev + 1);
+      
+      // Invalidate all project-related queries to ensure fresh data
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      
+      // Also invalidate specific project if we have it
+      if (currentProject?.id) {
+        queryClient.invalidateQueries({ 
+          queryKey: ['projects', currentProject.id],
+          exact: true
+        });
+      }
+      
+      console.log('Cache invalidated for projects and tasks');
+      
+      // Force refetch the data immediately
+      try {
+        await queryClient.refetchQueries({ queryKey: ['projects'] });
+        console.log('Projects data refetched after task update');
+      } catch (error) {
+        console.error('Error refetching projects after task update:', error);
+      }
     } catch (error) {
       console.error('Error in handleUpdateTask:', error);
       // Error is already handled by the hook
@@ -389,7 +506,7 @@ export function ProjectList({ projects }: ProjectListProps) {
       {/* Project Modal for editing */}
       {showEditModal && editingProject && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl mx-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Edit Project
             </h3>
@@ -414,9 +531,21 @@ export function ProjectList({ projects }: ProjectListProps) {
                 <textarea
                   value={editingProject.description || ''}
                   onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-none"
+                  rows={6}
+                  maxLength={1000}
+                  placeholder="Describe your project in detail (up to 1000 characters)"
                 />
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {(editingProject.description || '').length}/1000 characters
+                  </span>
+                  {(editingProject.description || '').length >= 500 && (
+                    <span className="text-xs text-green-600 dark:text-green-400">
+                      ✓ Good detail level
+                    </span>
+                  )}
+                </div>
               </div>
               
               <div>
@@ -468,26 +597,66 @@ export function ProjectList({ projects }: ProjectListProps) {
         />
       )}
 
-      {/* Subtasks Generation Modal */}
-      {showSubtasksModal && currentProject && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+             {/* Subtasks Generation Modal */}
+       {showSubtasksModal && currentProject && (
+         <>
+           {console.log('Rendering subtasks modal with currentProject:', currentProject)}
+           <div key={`modal-${refreshKey}`} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Manage Tasks for: {currentProject.name}
-                </h3>
+                <div className="flex items-center space-x-3">
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    Manage Tasks for: {currentProject.name}
+                  </h3>
+                  {isRefreshingProject && (
+                    <div className="flex items-center space-x-2 text-sm text-blue-600 dark:text-blue-400">
+                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                      <span>Refreshing...</span>
+                    </div>
+                  )}
+                </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   View, edit, and generate new subtasks for your project
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                onClick={() => setShowSubtasksModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </Button>
+              <div className="flex items-center space-x-2">
+                                 <Button
+                   variant="outline"
+                   size="sm"
+                   onClick={refreshSubtasksModal}
+                   disabled={isRefreshingProject}
+                   className="text-blue-600 hover:text-blue-700 disabled:opacity-50"
+                 >
+                   <div className={`w-4 h-4 mr-2 ${isRefreshingProject ? 'animate-spin' : ''}`}>
+                     {isRefreshingProject ? (
+                       <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                     ) : (
+                       <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full" />
+                     )}
+                   </div>
+                   Refresh
+                 </Button>
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   onClick={forceRefreshSubtasksModal}
+                   disabled={isRefreshingProject}
+                   className="text-green-600 hover:text-green-700 disabled:opacity-50"
+                 >
+                   <div className="w-4 h-4 mr-2">
+                     <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full" />
+                   </div>
+                   Force Refresh
+                 </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowSubtasksModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
             </div>
             
             {/* Existing Tasks Section */}
@@ -508,7 +677,7 @@ export function ProjectList({ projects }: ProjectListProps) {
                        status: 'pending',
                        priority: 'medium',
                        effort: 3,
-                       estimated_hours: undefined,
+                       estimated_hours: 8,
                        due_date: undefined,
                        project_id: currentProject.id,
                        parent_task_id: undefined,
@@ -655,12 +824,15 @@ export function ProjectList({ projects }: ProjectListProps) {
             </div>
                      </div>
          </div>
+         </>
        )}
 
        {/* Task Edit Modal */}
        {showEditTaskModal && editingTask && (
-         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+         <>
+           {console.log('Modal opened with editingTask:', editingTask)}
+           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl mx-4">
              <div className="flex items-center justify-between mb-6">
                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
                  {editingTask.id.startsWith('temp-') ? 'Create New Task' : 'Edit Task'}
@@ -674,19 +846,20 @@ export function ProjectList({ projects }: ProjectListProps) {
                </Button>
              </div>
              
-             <form onSubmit={(e) => {
-               e.preventDefault();
-               const formData = new FormData(e.currentTarget);
-               handleUpdateTask({
-                 title: formData.get('title') as string,
-                 description: formData.get('description') as string,
-                 status: formData.get('status') as Task['status'],
-                 priority: formData.get('priority') as Task['priority'],
-                 effort: parseInt(formData.get('effort') as string),
-                 estimated_hours: parseFloat(formData.get('estimated_hours') as string) || undefined,
-                 due_date: formData.get('due_date') as string || undefined
-               });
-             }} className="space-y-4">
+                         <form onSubmit={(e) => {
+              e.preventDefault();
+              console.log('Form submission - current editingTask:', editingTask);
+              
+              handleUpdateTask({
+                title: editingTask.title || '',
+                description: editingTask.description || '',
+                status: editingTask.status || 'pending',
+                priority: editingTask.priority || 'medium',
+                effort: editingTask.effort || 3,
+                estimated_hours: editingTask.estimated_hours || 8,
+                due_date: editingTask.due_date || undefined
+              });
+            }} className="space-y-4">
                <div>
                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                    Title *
@@ -694,7 +867,8 @@ export function ProjectList({ projects }: ProjectListProps) {
                  <input
                    type="text"
                    name="title"
-                   defaultValue={editingTask.title}
+                   value={editingTask.title || ''}
+                   onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                    required
                  />
@@ -706,10 +880,23 @@ export function ProjectList({ projects }: ProjectListProps) {
                  </label>
                  <textarea
                    name="description"
-                   defaultValue={editingTask.description || ''}
-                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                   rows={3}
+                   value={editingTask.description || ''}
+                   onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })}
+                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-none"
+                   rows={6}
+                   maxLength={1000}
+                   placeholder="Describe the task in detail (up to 1000 characters)"
                  />
+                 <div className="flex justify-between items-center mt-1">
+                   <span className="text-xs text-gray-500 dark:text-gray-400">
+                     {(editingTask.description || '').length}/1000 characters
+                   </span>
+                   {(editingTask.description || '').length >= 100 && (
+                     <span className="text-xs text-green-600 dark:text-green-400">
+                       ✓ Good detail level
+                     </span>
+                   )}
+                 </div>
                </div>
                
                <div className="grid grid-cols-2 gap-4">
@@ -719,7 +906,8 @@ export function ProjectList({ projects }: ProjectListProps) {
                    </label>
                    <select
                      name="status"
-                     defaultValue={editingTask.status}
+                     value={editingTask.status || 'pending'}
+                     onChange={(e) => setEditingTask({ ...editingTask, status: e.target.value as Task['status'] })}
                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                    >
                      <option value="pending">Pending</option>
@@ -735,7 +923,8 @@ export function ProjectList({ projects }: ProjectListProps) {
                    </label>
                    <select
                      name="priority"
-                     defaultValue={editingTask.priority}
+                     value={editingTask.priority || 'medium'}
+                     onChange={(e) => setEditingTask({ ...editingTask, priority: e.target.value as Task['priority'] })}
                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                    >
                      <option value="low">Low</option>
@@ -753,7 +942,8 @@ export function ProjectList({ projects }: ProjectListProps) {
                    </label>
                    <select
                      name="effort"
-                     defaultValue={editingTask.effort}
+                     value={editingTask.effort || 3}
+                     onChange={(e) => setEditingTask({ ...editingTask, effort: parseInt(e.target.value) })}
                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                    >
                      {[1, 2, 3, 4, 5].map(num => (
@@ -769,11 +959,13 @@ export function ProjectList({ projects }: ProjectListProps) {
                    <input
                      type="number"
                      name="estimated_hours"
-                     defaultValue={editingTask.estimated_hours || ''}
+                     value={editingTask.estimated_hours ? Math.round(editingTask.estimated_hours) : 8}
+                     onChange={(e) => setEditingTask({ ...editingTask, estimated_hours: parseInt(e.target.value) || 8 })}
                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                     placeholder="0"
-                     min="0"
-                     step="0.5"
+                     placeholder="8"
+                     min="1"
+                     max="999"
+                     step="1"
                    />
                  </div>
                </div>
@@ -785,7 +977,8 @@ export function ProjectList({ projects }: ProjectListProps) {
                  <input
                    type="date"
                    name="due_date"
-                   defaultValue={editingTask.due_date || ''}
+                   value={editingTask.due_date || ''}
+                   onChange={(e) => setEditingTask({ ...editingTask, due_date: e.target.value || undefined })}
                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                  />
                </div>
@@ -820,6 +1013,7 @@ export function ProjectList({ projects }: ProjectListProps) {
              </form>
            </div>
          </div>
+         </>
        )}
      </div>
    );

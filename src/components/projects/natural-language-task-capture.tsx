@@ -209,7 +209,7 @@ export function NaturalLanguageTaskCapture({ onTaskCreate, projectId }: NaturalL
           status: 'pending',
           priority: index < 2 ? 'high' : 'medium',
           effort: Math.max(1, Math.min(5, 3 + (index % 3))),
-          estimated_hours: Math.max(1, Math.min(8, 2 + (index * 1.5)))
+          estimated_hours: Math.max(2, Math.min(16, Math.round(4 + (index * 2))))
         }));
       }
       
@@ -221,7 +221,7 @@ export function NaturalLanguageTaskCapture({ onTaskCreate, projectId }: NaturalL
       // Simple randomization - just vary effort and hours slightly
       subtasks = subtasks.map(task => {
         const newEffort = Math.max(1, Math.min(5, task.effort + (Math.random() > 0.5 ? 1 : -1)));
-        const newHours = Math.max(0.5, (task.estimated_hours || 1) + (Math.random() - 0.5) * 2);
+        const newHours = Math.max(2, Math.round((task.estimated_hours || 8) + (Math.random() - 0.5) * 4));
         
         console.log(`Task: ${task.title}, Original effort: ${task.effort}, New effort: ${newEffort}`);
         console.log(`Original hours: ${task.estimated_hours}, New hours: ${newHours}`);
@@ -438,12 +438,12 @@ export function NaturalLanguageTaskCapture({ onTaskCreate, projectId }: NaturalL
                       </label>
                       <input
                         type="number"
-                        value={task.estimated_hours || ''}
-                        onChange={(e) => updateTask(index, { estimated_hours: parseFloat(e.target.value) || undefined })}
+                        value={task.estimated_hours || 8}
+                        onChange={(e) => updateTask(index, { estimated_hours: parseInt(e.target.value) || 8 })}
                         className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                        placeholder="0"
-                        min="0"
-                        step="0.5"
+                        placeholder="8"
+                        min="1"
+                        step="1"
                       />
                     </div>
                   </div>

@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import { auth } from '@/lib/supabaseClient';
+import toast from 'react-hot-toast';
 
 interface GoogleOAuthButtonProps {
   variant?: 'default' | 'outline' | 'ghost';
@@ -22,10 +24,17 @@ export function GoogleOAuthButton({
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      // Redirect to your Google OAuth route
-      window.location.href = '/api/auth/google';
+      const { data, error } = await auth.signInWithGoogle();
+      
+      if (error) {
+        console.error('Google sign-in error:', error);
+        toast.error(error.message || 'Failed to sign in with Google');
+        setLoading(false);
+      }
+      // If successful, the user will be redirected to the callback page
     } catch (error) {
       console.error('Google sign-in error:', error);
+      toast.error('Failed to sign in with Google');
       setLoading(false);
     }
   };

@@ -11,7 +11,7 @@ import { AdvancedSearch } from '@/components/search/advanced-search';
 import { Analytics } from '@/components/analytics/analytics';
 import GoogleResources from '@/components/google-resources/google-resources';
 import { FeedbackPage } from '@/components/feedback/feedback-page';
-import { AuthForm } from '@/components/auth/auth-form';
+import { EnhancedAuthForm } from '@/components/auth/enhanced-auth-form';
 import { useAuth } from '@/components/auth/auth-provider';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
@@ -28,7 +28,7 @@ export default function DashboardPage() {
   }
 
   if (!user) {
-    return <AuthForm />;
+    return <EnhancedAuthForm />;
   }
 
   const renderActiveTab = () => {
@@ -37,14 +37,14 @@ export default function DashboardPage() {
         return <ResourceManager />;
       case 'google-resources':
         return <GoogleResources />;
+      case 'task-manager':
+        return <TaskManager />;
       case 'categories':
         return <CategoryManager />;
       case 'api-keys':
         return <ApiKeyManager />;
       case 'projects':
         return <ProjectManager />;
-      case 'tasks':
-        return <TaskManager />;
       case 'search':
         return <AdvancedSearch onTabChange={setActiveTab} />;
       case 'analytics':
