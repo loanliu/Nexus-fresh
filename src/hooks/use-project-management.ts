@@ -157,10 +157,18 @@ export const useCreateTask = () => {
   return useMutation({
     mutationFn: projectManagementClient.createTask,
     onSuccess: (newTask) => {
+      console.log('🔄 useCreateTask: Invalidating cache for new task:', newTask);
+      
+      // Invalidate the correct query key that useTasks uses
+      queryClient.invalidateQueries({ queryKey: ['tasks', newTask.project_id] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'all'] });
+      
+      // Also invalidate the old project-management keys for backward compatibility
       queryClient.invalidateQueries({ queryKey: projectManagementKeys.tasks() });
       if (newTask.project_id) {
         queryClient.invalidateQueries({ queryKey: projectManagementKeys.project(newTask.project_id) });
       }
+      
       toast.success('Task created successfully!');
     },
     onError: (error) => {
@@ -197,8 +205,16 @@ export const useDeleteTask = () => {
   return useMutation({
     mutationFn: projectManagementClient.deleteTask,
     onSuccess: (_, deletedId) => {
+      console.log('🔄 useDeleteTask: Invalidating cache for deleted task:', deletedId);
+      
+      // We need to invalidate all task queries since we don't know which project the task belonged to
+      // This is a bit broad but ensures the cache stays in sync
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      
+      // Also invalidate the old project-management keys for backward compatibility
       queryClient.invalidateQueries({ queryKey: projectManagementKeys.tasks() });
       queryClient.removeQueries({ queryKey: projectManagementKeys.task(deletedId) });
+      
       toast.success('Task deleted successfully!');
     },
     onError: (error) => {

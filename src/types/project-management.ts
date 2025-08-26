@@ -36,11 +36,21 @@ export interface Task {
   user_id: string;
   // Computed fields
   labels?: Label[];
-  subtasks?: Task[];
+  subtasks?: Subtask[];
   comments?: Comment[];
   attachments?: Attachment[];
   project?: Project;
   dependencies?: Task[]; // tasks that must be completed first
+}
+
+export interface Subtask {
+  id: string;
+  task_id: string;
+  title: string;
+  done: boolean;
+  order_index: number;
+  estimate_hours?: number;
+  created_at: string;
 }
 
 export interface Label {

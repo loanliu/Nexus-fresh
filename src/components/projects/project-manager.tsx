@@ -36,6 +36,7 @@ export function ProjectManager() {
   const { user } = useAuth();
   const [activeView, setActiveView] = useState<View>('projects');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Use database hooks instead of localStorage
   const { data: projects = [], isLoading, error } = useProjects();
@@ -49,10 +50,16 @@ export function ProjectManager() {
     { id: 'digest', label: 'Daily Digest', icon: Bell, description: 'Proactive alerts & notifications' }
   ];
 
+  const filteredProjects = projects.filter(project =>
+    project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (project.description && project.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    project.status.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const renderActiveView = () => {
     switch (activeView) {
       case 'projects':
-        return <ProjectList projects={projects} />;
+        return <ProjectList projects={filteredProjects} />;
       case 'my-day':
         return <MyDayControlCenter onTaskUpdate={(task) => {
           // Handle task updates
@@ -72,7 +79,7 @@ export function ProjectManager() {
       case 'digest':
         return <DailyDigest />;
       default:
-        return <ProjectList projects={projects} />;
+        return <ProjectList projects={filteredProjects} />;
     }
   };
 

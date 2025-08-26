@@ -41,7 +41,13 @@ const SEARCH_SUGGESTIONS = [
   'Google Docs',
   'spreadsheet',
   'presentation',
-  'PDF files'
+  'PDF files',
+  'project planning',
+  'task prioritization',
+  'team collaboration',
+  'deadline management',
+  'progress tracking',
+  'workflow automation'
 ];
 
 interface AdvancedSearchProps {
@@ -57,7 +63,7 @@ export function AdvancedSearch({ onTabChange }: AdvancedSearchProps) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({
-    sources: ['resource', 'category', 'subcategory', 'tag', 'task', 'file', 'api-key']
+    sources: ['resource', 'category', 'subcategory', 'tag', 'task', 'project', 'file', 'api-key']
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -232,6 +238,91 @@ export function AdvancedSearch({ onTabChange }: AdvancedSearchProps) {
         }
       }
 
+      // Search in projects table
+      if (!filters?.sources || filters.sources.includes('project')) {
+        console.log('🔍 Searching projects table for:', searchQuery);
+        const { data: projects, error: projectError } = await supabase
+          .from('projects')
+          .select(`
+            id,
+            name,
+            description,
+            status,
+            color,
+            created_at,
+            updated_at
+          `)
+          .or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+          .order('updated_at', { ascending: false })
+          .limit(10);
+
+        if (projectError) {
+          console.error('❌ Project search error:', projectError);
+        } else if (projects) {
+          console.log('✅ Projects found:', projects.length, projects);
+          const projectResults: SearchResult[] = projects.map(project => ({
+            entity_id: project.id,
+            title: project.name,
+            snippet: project.description || `Status: ${project.status}`,
+            source: 'project' as const,
+            similarity: 0.9,
+            updated_at: project.updated_at || project.created_at,
+            metadata: {
+              status: project.status,
+              color: project.color
+            }
+          }));
+          allResults.push(...projectResults);
+        } else {
+          console.log('📭 No projects found for query:', searchQuery);
+        }
+      }
+
+      // Search in tasks table
+      if (!filters?.sources || filters.sources.includes('task')) {
+        console.log('🔍 Searching tasks table for:', searchQuery);
+        const { data: tasks, error: taskError } = await supabase
+          .from('tasks')
+          .select(`
+            id,
+            title,
+            description,
+            status,
+            priority,
+            effort,
+            estimated_hours,
+            due_date,
+            project_id,
+            created_at,
+            updated_at
+          `)
+          .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+          .order('updated_at', { ascending: false })
+          .limit(10);
+
+        if (taskError) {
+          console.error('Task search error:', taskError);
+        } else if (tasks) {
+          const taskResults: SearchResult[] = tasks.map(task => ({
+            entity_id: task.id,
+            title: task.title,
+            snippet: task.description || `Priority: ${task.priority}, Effort: ${task.effort}/5`,
+            source: 'task' as const,
+            similarity: 0.85,
+            updated_at: task.updated_at || task.created_at,
+            metadata: {
+              status: task.status,
+              priority: task.priority,
+              effort: task.effort,
+              estimated_hours: task.estimated_hours,
+              due_date: task.due_date,
+              project_id: task.project_id
+            }
+          }));
+          allResults.push(...taskResults);
+        }
+      }
+
       // Search in API keys table
       if (!filters?.sources || filters.sources.includes('api-key')) {
         const { data: apiKeys, error: apiKeyError } = await supabase
@@ -311,25 +402,25 @@ export function AdvancedSearch({ onTabChange }: AdvancedSearchProps) {
         }
       }
 
-      // Sort results by similarity and recency
-      allResults.sort((a, b) => {
-        if (b.similarity !== a.similarity) {
-          return b.similarity - a.similarity;
-        }
-        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-      });
+             // Sort results by similarity and recency
+       allResults.sort((a, b) => {
+         if (b.similarity !== a.similarity) {
+           return b.similarity - a.similarity;
+         }
+         return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+       });
 
-      // Limit total results
-      const searchResults = allResults.slice(0, 20);
-      
-      console.log('🔍 Final search results:', {
-        totalFound: allResults.length,
-        finalResults: searchResults.length,
-        bySource: searchResults.reduce((acc, result) => {
-          acc[result.source] = (acc[result.source] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>)
-      });
+       // Limit total results
+       const searchResults = allResults.slice(0, 20);
+       
+              console.log('🔍 Final search results:', {
+         totalFound: allResults.length,
+         finalResults: searchResults.length,
+         bySource: searchResults.reduce((acc, result) => {
+           acc[result.source] = (acc[result.source] || 0) + 1;
+           return acc;
+         }, {} as Record<string, number>)
+       });
 
       const response: SearchResponse = {
         query: searchQuery,
@@ -438,7 +529,7 @@ export function AdvancedSearch({ onTabChange }: AdvancedSearchProps) {
         onTabChange('resources');
         break;
       case 'task':
-        onTabChange('tasks');
+        onTabChange('task-manager');
         break;
       case 'project':
         onTabChange('projects');
@@ -836,7 +927,7 @@ export function AdvancedSearch({ onTabChange }: AdvancedSearchProps) {
             Start searching
           </h3>
           <p className="text-gray-600 dark:text-gray-400">
-            Enter a search query above to find resources, categories, tasks, and more across your workspace.
+            Enter a search query above to find resources, categories, projects, tasks, and more across your workspace.
           </p>
           <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
             <p>💡 Tip: Use Ctrl+K to quickly focus the search box</p>

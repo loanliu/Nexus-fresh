@@ -303,12 +303,12 @@ export function NaturalLanguageTaskCapture({ onTaskCreate, projectId }: NaturalL
           <Sparkles className="h-8 w-8 text-blue-600 dark:text-blue-400" />
         </div>
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          {projectId ? 'Generate Project Subtasks' : 'AI-Powered Task Generation'}
+          {projectId ? 'Generate Project Tasks' : 'AI-Powered Task Generation'}
         </h2>
         <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
           {projectId 
-            ? 'Describe what you want to accomplish for this project and AI will generate relevant subtasks.'
-            : 'Describe your goal in natural language and let AI generate a structured list of subtasks to help you achieve it.'
+            ? 'Describe what you want to accomplish for this project and AI will generate relevant tasks.'
+            : 'Describe your goal in natural language and let AI generate a structured list of tasks to help you achieve it.'
           }
         </p>
       </div>
@@ -344,7 +344,7 @@ export function NaturalLanguageTaskCapture({ onTaskCreate, projectId }: NaturalL
                 ) : (
                 <>
                   <Sparkles className="w-5 h-5 mr-2" />
-                  {projectId ? 'Generate Project Subtasks' : 'Generate Subtasks'}
+                  {projectId ? 'Generate Project Tasks' : 'Generate Subtasks'}
                 </>
               )}
             </Button>
