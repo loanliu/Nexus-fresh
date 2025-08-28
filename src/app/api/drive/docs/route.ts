@@ -10,34 +10,31 @@ async function getGoogleOAuth2Client(request: NextRequest) {
   const cookieStore = await cookies();
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
   
+  // Try session first, then fallback to Authorization header
   let userEmail: string;
   
-  // First, try to get the current user session (works for all auth methods)
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  console.log(' Session check:', { hasSession: !!session, sessionError: sessionError?.message });
-  
-  if (session?.user?.email) {
-    // User is authenticated via Supabase Auth (any method)
-    userEmail = session.user.email;
-    console.log('✅ Using email from Supabase Auth session:', userEmail);
-  } else {
-    // No session, try to get user ID from the Authorization header (fallback)
-    console.log('🔍 No session, checking Authorization header...');
-    const authHeader = request.headers.get('authorization');
-    console.log('🔍 Authorization header:', authHeader);
-    
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const userId = authHeader.replace('Bearer ', '');
-      console.log(' Using user ID from Authorization header:', userId);
-      
-      // For now, let's skip the complex user lookup and just return an error
-      // This will prevent the tab from breaking while we debug
-      console.log('❌ No session and no direct user lookup implemented yet');
-      throw new Error('Please refresh the page and try again');
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (user?.email) {
+      userEmail = user.email;
+      console.log('✅ Using email from session:', userEmail);
     } else {
-      console.log('❌ No Authorization header found');
-      throw new Error('Authentication required - please sign in');
+      throw new Error('No session user');
     }
+  } catch (sessionError) {
+    console.log('🔍 Session failed, trying Authorization header...');
+    
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      throw new Error('No authentication found');
+    }
+    
+    // Get user ID from header and look up email
+    const userId = authHeader.replace('Bearer ', '');
+    console.log(' Using user ID from header:', userId);
+    
+    // For now, skip complex user lookup and just return test data
+    throw new Error('Authorization header method needs implementation');
   }
 
   console.log(' Looking for Google tokens for user email:', userEmail);
@@ -254,11 +251,8 @@ export async function GET(request: NextRequest) {
       } else if (error.message.includes('token expired')) {
         errorMessage = 'Google access token expired - please re-authenticate with Google';
         statusCode = 401;
-      } else if (error.message.includes('User not found')) {
-        errorMessage = 'User not found - please sign in';
-        statusCode = 401;
-      } else if (error.message.includes('Please refresh')) {
-        errorMessage = 'Please refresh the page and try again';
+      } else if (error.message.includes('Authorization header method needs implementation')) {
+        errorMessage = 'Please refresh and try again - using Authorization header method';
         statusCode = 401;
       } else {
         errorMessage = error.message;

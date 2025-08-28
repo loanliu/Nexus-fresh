@@ -1,0 +1,18 @@
+LEAN AGENT MODE
+
+Objective: <one sentence>
+
+Hard limits (do not exceed):
+- Max tool steps: 3 (Plan -> Edit 1 file -> Show diff). No terminal runs.
+- Max files to read: 3 (only from the list below). Do NOT scan whole repo.
+- Max total changes: 40 lines. No refactors outside scope.
+
+Files you MAY touch: <whitelist paths here>
+
+Process:
+1) PLAN (≤120 tokens): list the single-file edit you’ll make and why.
+2) EDIT: apply ONLY that change. Keep changes minimal/isolated.
+3) SHOW DIFF: present the unified diff and STOP.
+
+If constraints block success, STOP and ask for exactly what extra file/permission you need (1 sentence).
+
