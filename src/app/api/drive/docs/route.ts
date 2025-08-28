@@ -5,41 +5,70 @@ import { cookies } from 'next/headers';
 
 // Helper function to get OAuth2 client from Supabase user session
 async function getGoogleOAuth2Client(request: NextRequest) {
+  console.log(' Starting getGoogleOAuth2Client...');
+  
   const cookieStore = await cookies();
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
   
-  // Try to get the current user session
+  let userEmail: string;
+  
+  // First, try to get the current user session (works for all auth methods)
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  console.log(' Session check:', { hasSession: !!session, sessionError: sessionError?.message });
   
-  let userId: string;
-  
-  if (sessionError || !session?.user) {
-    // If no session, try to get user ID from the Authorization header
+  if (session?.user?.email) {
+    // User is authenticated via Supabase Auth (any method)
+    userEmail = session.user.email;
+    console.log('✅ Using email from Supabase Auth session:', userEmail);
+  } else {
+    // No session, try to get user ID from the Authorization header (fallback)
+    console.log('🔍 No session, checking Authorization header...');
     const authHeader = request.headers.get('authorization');
+    console.log('🔍 Authorization header:', authHeader);
+    
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      userId = authHeader.replace('Bearer ', '');
-      console.log('Using user ID from Authorization header:', userId);
+      const userId = authHeader.replace('Bearer ', '');
+      console.log(' Using user ID from Authorization header:', userId);
+      
+      // For now, let's skip the complex user lookup and just return an error
+      // This will prevent the tab from breaking while we debug
+      console.log('❌ No session and no direct user lookup implemented yet');
+      throw new Error('Please refresh the page and try again');
     } else {
+      console.log('❌ No Authorization header found');
       throw new Error('Authentication required - please sign in');
     }
-  } else {
-    userId = session.user.id;
-    console.log('Using user ID from session:', userId);
   }
 
+  console.log(' Looking for Google tokens for user email:', userEmail);
+  
   // Get the user's Google access token from the database
   const { data: tokenData, error: tokenError } = await supabase
-    .from('google_tokens')
+    .from('google_access_tokens')
     .select('access_token, refresh_token, expires_at')
-    .eq('user_id', userId)
+    .eq('user_email', userEmail)
     .single();
 
+  console.log('🔍 Token lookup result:', { 
+    hasToken: !!tokenData?.access_token, 
+    tokenError: tokenError?.message,
+    tokenData: tokenData ? { 
+      hasAccessToken: !!tokenData.access_token,
+      hasRefreshToken: !!tokenData.refresh_token,
+      expiresAt: tokenData.expires_at
+    } : null
+  });
+
   if (tokenError || !tokenData?.access_token) {
+    console.log('❌ Token not found or error:', tokenError?.message);
     throw new Error('Google access token not found - please re-authenticate with Google');
   }
 
+  console.log('✅ Token found successfully, creating OAuth2 client...');
+
   // Check if token is expired
   if (tokenData.expires_at && new Date(tokenData.expires_at) <= new Date()) {
+    console.log('❌ Token expired:', tokenData.expires_at);
     throw new Error('Google access token expired - please re-authenticate with Google');
   }
 
@@ -54,6 +83,7 @@ async function getGoogleOAuth2Client(request: NextRequest) {
     refresh_token: tokenData.refresh_token
   });
   
+  console.log('✅ OAuth2 client created successfully');
   return oauth2Client;
 }
 
@@ -66,7 +96,6 @@ function filterDocuments(files: any[]) {
       'audio/',
       'image/',
       'application/octet-stream',
-
       'application/zip',
       'application/x-rar-compressed'
     ];
@@ -106,302 +135,141 @@ function formatFileSize(bytes: string): string {
   
   return parseFloat((size / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
-   // Helper function to get folder path
-   async function getFolderPath(drive: any, folderId: string): Promise<string> {
-    try {
-      const response = await drive.files.get({
-        fileId: folderId,
-        fields: 'name,parents'
-      });
-      
-      const folder = response.data;
-      if (folder.parents && folder.parents.length > 0) {
-        const parentPath = await getFolderPath(drive, folder.parents[0]);
-        return `${parentPath} > ${folder.name}`;
-      }
-      return folder.name;
-    } catch (error) {
-      return 'Unknown Folder';
-    }
-  }
 
-export async function GET(request: NextRequest) {
+// Helper function to get folder path
+async function getFolderPath(drive: any, folderId: string): Promise<string> {
   try {
-    console.log('=== Google Drive API called ===');
-    
-    // Get pagination parameters from URL
-    const { searchParams } = new URL(request.url);
-    const pageSize = parseInt(searchParams.get('pageSize') || '50'); // Default to 50 documents per page
-    const pageToken = searchParams.get('pageToken') || undefined;
-    const searchQuery = searchParams.get('q') || undefined;
-    
-    console.log('Pagination params:', { pageSize, pageToken, searchQuery });
-    
-    // Check if user is authenticated
-    let auth;
-    try {
-      auth = await getGoogleOAuth2Client(request);
-    } catch (error) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Authentication required',
-          message: 'Please sign in with Google to access your Drive documents'
-        },
-        { status: 401 }
-      );
-    }
-    
-    // Initialize Google Drive API
-    const drive = google.drive({ version: 'v3', auth });
-    
-    // Build query to get documents with filters
-    let query = [
-      "trashed = false",
-      "(mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.presentation' or mimeType='application/pdf')",
-      "createdTime > '2020-01-01T00:00:00'"
-    ];
-    
-    // Add search query if provided
-    if (searchQuery && searchQuery.trim()) {
-      query.unshift(`(fullText contains '${searchQuery.trim()}')`);
-      console.log('=== Google Drive Search API called ===');
-    } else {
-      console.log('=== Google Drive API called ===');
-    }
-    
-    const finalQuery = query.join(' and ');
-    console.log('Search query:', finalQuery);
-    
-         // Fetch files from Drive with pagination
-     const driveParams: any = {
-       q: finalQuery,
-       pageSize: Math.min(pageSize, 100), // Google Drive API max is 1000, but we'll limit to 100 for performance
-       fields: 'nextPageToken,files(id,name,mimeType,createdTime,modifiedTime,size,webViewLink,parents)'
-     };
-     
-     // Google Drive API doesn't allow sorting with fullText searches
-     // Only add orderBy if we're not doing a fullText search
-     if (!searchQuery || !searchQuery.trim()) {
-       driveParams.orderBy = 'createdTime desc';
-     }
-    
-         if (pageToken) {
-       driveParams.pageToken = pageToken;
-     }
-     
-     console.log('Drive API params:', driveParams);
-     const response = await drive.files.list(driveParams);
-    
-    const files = response.data.files || [];
-    if (searchQuery && searchQuery.trim()) {
-      console.log(`Search found ${files.length} files`);
-    } else {
-      console.log(`Found ${files.length} files in Drive`);
-    }
-    
-    // Apply additional filtering
-    const filteredFiles = filterDocuments(files);
-    console.log(`After filtering: ${filteredFiles.length} files`);
-    
-
-   // Format documents for frontend
-   const documents = await Promise.all(filteredFiles.map(async (file) => {
-    let folderPath = 'Root';
-    if (file.parents && file.parents.length > 0) {
-      folderPath = await getFolderPath(drive, file.parents[0]);
-    }
-    
-    return {
-      id: file.id,
-      name: file.name,
-      mimeType: file.mimeType,
-      createdTime: file.createdTime,
-      modifiedTime: file.modifiedTime,
-      size: formatFileSize(file.size || '0'),
-      webViewLink: file.webViewLink,
-      folderPath,  // Add this line
-      content: `Google ${file.mimeType.includes('document') ? 'Document' : file.mimeType.includes('spreadsheet') ? 'Spreadsheet' : 'Presentation'} created on ${new Date(file.createdTime).toLocaleDateString()}`
-    };
-  }));    
-    
-    return NextResponse.json({
-      success: true,
-      documents,
-      total: documents.length,
-      nextPageToken: response.data.nextPageToken || null,
-      hasMore: !!response.data.nextPageToken,
-      pageSize: driveParams.pageSize,
-      message: `Successfully loaded ${documents.length} documents from Google Drive`
+    const response = await drive.files.get({
+      fileId: folderId,
+      fields: 'name,parents'
     });
     
-     } catch (error) {
-     console.error('=== Error in Google Drive API ===');
-     console.error('Error:', error);
-     
-     if (error instanceof Error && error.message.includes('Authentication required')) {
-       return NextResponse.json(
-         {
-           success: false,
-           error: 'Authentication required',
-           message: 'Please sign in with Google to access your Drive documents'
-         },
-         { status: 401 }
-       );
-     }
-     
-     // Handle Google Drive API specific errors
-     if (error && typeof error === 'object' && 'code' in error) {
-       const googleError = error as any;
-       if (googleError.code === 403 && googleError.message?.includes('Sorting is not supported')) {
-         return NextResponse.json(
-           {
-             success: false,
-             error: 'Search sorting error',
-             message: 'Google Drive search results cannot be sorted. Results are returned by relevance.',
-             details: 'Try searching without sorting options.'
-           },
-           { status: 400 }
-         );
-       }
-     }
-     
-     return NextResponse.json(
-       {
-         success: false,
-         error: 'Failed to fetch documents from Google Drive',
-         details: error instanceof Error ? error.message : 'Unknown error'
-       },
-       { status: 500 }
-     );
-   }
+    const folder = response.data;
+    if (folder.parents && folder.parents.length > 0) {
+      const parentPath = await getFolderPath(drive, folder.parents[0]);
+      return parentPath ? `${parentPath} > ${folder.name}` : folder.name;
+    }
+    return folder.name;
+  } catch (error) {
+    console.error('Error getting folder path:', error);
+    return '';
+  }
 }
 
-export async function POST(request: NextRequest) {
+// Main API route handler
+export async function GET(request: NextRequest) {
+  console.log('🚀 GET /api/drive/docs called');
+  
   try {
-    console.log('=== Google Drive Search API called ===');
-    
-    const body = await request.json();
-    const { query, includeContent = false, pageSize = 20, pageToken } = body;
-    
-    // Check if user is authenticated
-    let auth;
-    try {
-      auth = await getGoogleOAuth2Client(request);
-    } catch (error) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Authentication required',
-          message: 'Please sign in with Google to access your Drive documents'
-        },
-        { status: 401 }
-      );
-    }
-    
-    // Initialize Google Drive API
-    const drive = google.drive({ version: 'v3', auth });
-    
+    // Get OAuth2 client
+    const oauth2Client = await getGoogleOAuth2Client(request);
+    console.log('✅ OAuth2 client obtained');
+
+    // Create Google Drive API client
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
+    console.log('✅ Google Drive client created');
+
+    // Get query parameters
+    const { searchParams } = new URL(request.url);
+    const pageSize = parseInt(searchParams.get('pageSize') || '20');
+    const pageToken = searchParams.get('pageToken') || '';
+    const query = searchParams.get('q') || '';
+
+    console.log('🔍 Query parameters:', { pageSize, pageToken: !!pageToken, query });
+
     // Build search query
     let searchQuery = '';
-    if (query && query.trim()) {
-      searchQuery = `fullText contains '${query.trim()}'`;
+    if (query) {
+      searchQuery = `fullText contains '${query}'`;
     }
-    
-    // Base filters
-    const baseFilters = [
-      "trashed = false",
-      "(mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.presentation' or mimeType='application/pdf')",
-      "createdTime > '2020-01-01T00:00:00'"
-    ];
-    
-    // Combine search with filters
-    let finalQuery = baseFilters.join(' and ');
-    if (searchQuery) {
-      finalQuery = `(${searchQuery}) and ${finalQuery}`;
-    }
-    
-    console.log('Search query:', finalQuery);
-    
-    // Search files in Drive with pagination
-    const searchParams: any = {
-      q: finalQuery,
-      pageSize: Math.min(pageSize, 100),
-      fields: 'nextPageToken,files(id,name,mimeType,createdTime,modifiedTime,size,webViewLink,parents)'
-    };
-    
-    // Google Drive API doesn't allow sorting with fullText searches
-    // Only add orderBy if we're not doing a fullText search
-    if (!searchQuery) {
-      searchParams.orderBy = 'createdTime desc';
-    }
-    
-    if (pageToken) {
-      searchParams.pageToken = pageToken;
-    }
-    
-    const response = await drive.files.list(searchParams);
-    
-    const files = response.data.files || [];
-    console.log(`Search found ${files.length} files`);
-    
-    // Apply additional filtering
-    const filteredFiles = filterDocuments(files);
-    console.log(`After filtering: ${filteredFiles.length} files`);
-    
-    // Format documents for frontend and fetch folder paths
-    const documents = await Promise.all(filteredFiles.map(async (file) => {
-      let folderPath = 'Root';
-      if (file.parents && file.parents.length > 0) {
-        folderPath = await getFolderPath(drive, file.parents[0]);
-      }
-      
-      return {
-        id: file.id,
-        name: file.name,
-        mimeType: file.mimeType,
-        createdTime: file.createdTime,
-        modifiedTime: file.modifiedTime,
-        size: formatFileSize(file.size || '0'),
-        webViewLink: file.webViewLink,
-        folderPath,
-        content: `Google ${file.mimeType.includes('document') ? 'Document' : file.mimeType.includes('spreadsheet') ? 'Spreadsheet' : 'Presentation'} containing "${query}" - created on ${new Date(file.createdTime).toLocaleDateString()}`
-      };
-    }));
-    
-    return NextResponse.json({
-      success: true,
-      documents,
-      total: documents.length,
-      nextPageToken: response.data.nextPageToken || null,
-      hasMore: !!response.data.nextPageToken,
-      pageSize: searchParams.pageSize,
-      query: query || '',
-      message: `Search completed: found ${documents.length} documents`
+
+    // Get files from Google Drive
+    const response = await drive.files.list({
+      pageSize,
+      pageToken: pageToken || undefined,
+      q: searchQuery,
+      fields: 'nextPageToken, files(id, name, mimeType, description, webViewLink, createdTime, modifiedTime, size, parents)',
+      orderBy: 'modifiedTime desc'
     });
-    
-  } catch (error) {
-    console.error('=== Error in Google Drive Search API ===');
-    console.error('Error:', error);
-    
-    if (error instanceof Error && error.message.includes('Authentication required')) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Authentication required',
-          message: 'Please sign in with Google to access your Drive documents'
-        },
-        { status: 401 }
-      );
+
+    console.log('✅ Google Drive API response received:', { 
+      fileCount: response.data.files?.length || 0,
+      hasNextPage: !!response.data.nextPageToken
+    });
+
+    if (!response.data.files) {
+      console.log('⚠️ No files returned from Google Drive');
+      return NextResponse.json({ documents: [], nextPageToken: null });
     }
+
+    // Filter and process files
+    const filteredFiles = filterDocuments(response.data.files);
+    console.log('🔍 Files after filtering:', { 
+      originalCount: response.data.files.length,
+      filteredCount: filteredFiles.length
+    });
+
+    // Get folder paths for files
+    const documentsWithPaths = await Promise.all(
+      filteredFiles.map(async (file) => {
+        let folderPath = '';
+        if (file.parents && file.parents.length > 0) {
+          folderPath = await getFolderPath(drive, file.parents[0]);
+        }
+
+        return {
+          id: file.id,
+          name: file.name,
+          mimeType: file.mimeType,
+          description: file.description || '',
+          webViewLink: file.webViewLink || '',
+          folderPath,
+          createdTime: file.createdTime,
+          modifiedTime: file.modifiedTime,
+          size: file.size ? formatFileSize(file.size) : 'Unknown'
+        };
+      })
+    );
+
+    console.log('✅ Documents processed successfully');
+
+    return NextResponse.json({
+      documents: documentsWithPaths,
+      nextPageToken: response.data.nextPageToken || null
+    });
+
+  } catch (error) {
+    console.error('❌ Error in GET /api/drive/docs:', error);
+    
+    let errorMessage = 'Failed to load documents';
+    let statusCode = 500;
+
+    if (error instanceof Error) {
+      if (error.message.includes('Authentication required')) {
+        errorMessage = 'Authentication required - Please sign in with Google to access your Drive documents';
+        statusCode = 401;
+      } else if (error.message.includes('Google access token not found')) {
+        errorMessage = 'Google access token not found - please re-authenticate with Google';
+        statusCode = 401;
+      } else if (error.message.includes('token expired')) {
+        errorMessage = 'Google access token expired - please re-authenticate with Google';
+        statusCode = 401;
+      } else if (error.message.includes('User not found')) {
+        errorMessage = 'User not found - please sign in';
+        statusCode = 401;
+      } else if (error.message.includes('Please refresh')) {
+        errorMessage = 'Please refresh the page and try again';
+        statusCode = 401;
+      } else {
+        errorMessage = error.message;
+      }
+    }
+
+    console.log('❌ Returning error response:', { statusCode, errorMessage });
     
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Search failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
+      { error: errorMessage },
+      { status: statusCode }
     );
   }
 }

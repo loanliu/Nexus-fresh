@@ -11,11 +11,28 @@ import { ProjectManager } from '@/components/projects/project-manager';
 import { Analytics } from '@/components/analytics/analytics';
 import { ResourceManager } from '@/components/resources/resource-manager';
 import { FeedbackPage } from '@/components/feedback/feedback-page';
+//import { GoogleDriveConnect } from '@/components/GoogleDriveConnect';
+//import { GoogleDriveStatus } from '@/components/GoogleDriveStatus';
 
-type Tab = 'search' | 'projects' | 'resources' | 'google-resources' | 'api-keys' | 'analytics' | 'feedback' | 'task-manager' | 'categories';
+type Tab = 'search' | 'projects' | 'resources' | 'google-resources' | 'api-keys' | 'analytics' | 'feedback' | 'task-manager' | 'categories' | 'google-drive';
+// Add a new tab for Google Drive
+const tabs: Tab [] = [
+  'search', 
+  'projects', 
+  'resources', 
+  'google-resources', 
+  'api-keys', 
+  'analytics', 
+  'feedback', 
+  'task-manager', 
+  'categories',
+  'google-drive' // Add this new tab
+];
 
 export default function DashboardPage() {
+  console.log('🚀 DashboardPage component is being rendered!'); // Add this line
   const [activeTab, setActiveTab] = useState<Tab>('projects');
+  console.log('Dashboard: Loan Rendering tab:');
 
   // Auto-switch to Google Resources tab after successful Google Drive authentication
   useEffect(() => {
@@ -38,11 +55,13 @@ export default function DashboardPage() {
     }
   }, []); // Only run once on mount
 
-  const handleTabChange = (tab: string) => {
+  const handleTabChange = useCallback((tab: string) => {
+    console.log('Dashboard: Tab change requested:', tab);
     setActiveTab(tab as Tab);
-  };
+  }, []); // Empty dependency array to ensure stability
 
   const renderTabContent = (tab: Tab) => {
+    console.log('Dashboard page: Rendering tab:', tab);
     switch (tab) {
       case 'search':
         return <AdvancedSearch onTabChange={handleTabChange} />;
@@ -62,11 +81,31 @@ export default function DashboardPage() {
         return <Analytics />;
       case 'feedback':
         return <FeedbackPage />;
+        case 'google-drive':
+          console.log('Dashboard: Google Drive case matched!'); // Add this
+          return (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold">Google Drive Integration</h2>
+              </div>
+              
+              {/* Temporarily comment out these components to test */}
+              {/* <div className="grid gap-6 md:grid-cols-2">
+                <GoogleDriveStatus />
+                <GoogleDriveConnect />
+              </div> */}
+              
+              {/* Add this simple test content instead */}
+              <div className="p-6 bg-blue-50 rounded-lg">
+                <p className="text-blue-800">Google Drive tab is working! Components are temporarily disabled for testing.</p>
+              </div>
+            </div>
+          );        
       default:
         return <AdvancedSearch onTabChange={handleTabChange} />;
     }
   };
-
+  console.log('Dashboard: handleTabChange function:', handleTabChange); // Add this before return
   return (
     <DashboardLayout activeTab={activeTab} onTabChange={handleTabChange}>
       {renderTabContent(activeTab)}

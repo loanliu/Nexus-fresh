@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useGoogleDocs, GoogleDocument } from '@/hooks/use-google-docs';
 import { SearchFilters } from './search-filters';
 import GoogleDriveAuth from './google-drive-auth';
+import { supabase } from '@/lib/supabase';
 
 export default function GoogleResources() {
   const [isClient, setIsClient] = useState(false);
@@ -25,6 +26,10 @@ export default function GoogleResources() {
   } = useGoogleDocs();
 
   const [isSearching, setIsSearching] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   // Prevent hydration mismatch by only rendering on client
   useEffect(() => {
@@ -49,6 +54,29 @@ export default function GoogleResources() {
     return () => clearTimeout(timeoutId);
   }, [searchQuery, searchDocuments, loadDocuments, isClient]);
 
+  useEffect(() => {
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+
+      if (user?.email) {
+        try {
+          const { data } = await supabase
+            .from('google_access_tokens')
+            .select('id')
+            .eq('user_email', user.email)
+            .single();
+          setIsConnected(!!data);
+        } finally {
+          setChecking(false);
+        }
+      } else {
+        setChecking(false);
+      }
+    };
+    init();
+  }, []);
+
   // Don't render anything until client-side to prevent hydration mismatch
   if (!isClient) {
     return (
@@ -66,6 +94,8 @@ export default function GoogleResources() {
       </div>
     );
   }
+
+  if (!user || checking || isConnected) return null;
 
   const handleFiltersChange = (filters: any) => {
     // Update search query when filters change
@@ -85,6 +115,22 @@ export default function GoogleResources() {
     await refreshDocuments();
   };
 
+  const handleConnectGoogleDrive = async () => {
+    if (!user) return;
+    setIsConnecting(true);
+    try {
+      const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+        `client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&` +
+        `redirect_uri=${encodeURIComponent(window.location.origin + '/api/auth/google-drive/callback')}&` +
+        `response_type=code&` +
+        `scope=${encodeURIComponent('https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.email')}&` +
+        `state=${user.id}`;
+      window.location.href = googleAuthUrl;
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   return (
     <>
       <div className="mb-8">
@@ -95,6 +141,13 @@ export default function GoogleResources() {
           Search and manage your Google Drive documents, excluding videos, audio, and files created before 2020.
         </p>
       </div>
+      
+      {/* Google Drive Connection Section - Only show when not connected */}
+      {!isLoading && !error && (!filteredDocuments || filteredDocuments.length === 0) && (
+        <div className="mb-6">
+          <GoogleDriveAuth />
+        </div>
+      )}      
 
       {/* Search Filters */}
       <SearchFilters 

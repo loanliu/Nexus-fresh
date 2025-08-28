@@ -41,6 +41,7 @@ const navigationTabs = [
   { id: 'api-keys', label: 'API Keys', icon: Key, description: 'Secure API key management' },
   { id: 'analytics', label: 'Analytics', icon: BarChart3, description: 'Usage statistics and insights' },
   { id: 'feedback', label: 'Feedback', icon: MessageSquare, description: 'Share your thoughts and suggestions' },
+  { id: 'google-drive', label: 'Google Drive', icon: FolderOpen, description: 'Connect and manage Google Drive integration' },  
 ];
 
 export function DashboardLayout({ children, activeTab, onTabChange }: DashboardLayoutProps) {
@@ -134,8 +135,16 @@ export function DashboardLayout({ children, activeTab, onTabChange }: DashboardL
               <button
                 key={tab.id}
                 onClick={() => {
-                  onTabChange(tab.id);
-                  setSidebarOpen(false);
+                  console.log('Layout: Tab clicked:', tab.id);
+                  console.log('Layout: onTabChange function:', onTabChange);
+                  console.log('Layout: onTabChange type:', typeof onTabChange);
+                  
+                  try {
+                    onTabChange(tab.id);
+                    setSidebarOpen(false);
+                  } catch (error) {
+                    console.error('Layout: Error calling onTabChange:', error);
+                  }
                 }}
                 className={`
                   w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors duration-200

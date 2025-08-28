@@ -1,25 +1,11 @@
 'use client';
 
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from './supabase'; // Import the shared client instead of creating a new one
 import { Database } from '@/types/supabase';
 
 // Supabase configuration
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-// Create Supabase client with auth configuration
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce', // Use PKCE flow for better security
-  },
-});
+//const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+//const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 // Auth helper functions
 export const auth = {
