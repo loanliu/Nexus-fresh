@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabaseClient';
+import { Button } from '@/components/ui/button';
 
 export function GoogleDriveConnect() {
   const [user, setUser] = useState<any>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -14,11 +16,23 @@ export function GoogleDriveConnect() {
 
       if (user?.email) {
         try {
-          const { data } = await supabase
+          // First try to find tokens by user_id (preferred method)
+          let { data } = await supabase
             .from('google_access_tokens')
             .select('id')
-            .eq('user_email', user.email)
-            .single();
+            .eq('user_id', user.id)
+            .maybeSingle();
+          
+          // If no tokens found by user_id, try by user_email (legacy method)
+          if (!data) {
+            const { data: emailData } = await supabase
+              .from('google_access_tokens')
+              .select('id')
+              .eq('user_email', user.email)
+              .maybeSingle();
+            data = emailData;
+          }
+          
           setIsConnected(!!data);
         } finally {
           setChecking(false);
@@ -30,16 +44,56 @@ export function GoogleDriveConnect() {
     init();
   }, []);
 
+  const handleDisconnect = async () => {
+    if (!user) return;
+    
+    try {
+      setIsDisconnecting(true);
+      
+      // Clear Google access tokens from database
+      const { error } = await supabase
+        .from('google_access_tokens')
+        .delete()
+        .eq('user_email', user.email);
+
+      if (error) {
+        console.error('Error deleting Google tokens:', error);
+        alert('Failed to disconnect. Please try again.');
+        return;
+      }
+
+      // Update local state
+      setIsConnected(false);
+      
+      alert('Google Drive disconnected successfully! Please refresh the page.');
+      
+    } catch (error) {
+      console.error('Error disconnecting Google Drive:', error);
+      alert(`Failed to disconnect: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
+
   if (!user || checking) return null;
 
-  // Show connected state instead of hiding completely
+  // Show connected state with disconnect button
   if (isConnected) {
     return (
       <div className="p-4 border rounded-lg bg-green-50 shadow-sm">
         <h3 className="text-lg font-semibold mb-2 text-green-800">Google Drive Connected</h3>
-        <p className="text-green-700">
+        <p className="text-green-700 mb-3">
           ✅ Your Google Drive is successfully connected and ready to use.
         </p>
+        
+        {/* Disconnect Button */}
+        <Button
+          onClick={handleDisconnect}
+          disabled={isDisconnecting}
+          className="text-red-600 border-red-300 hover:bg-red-50 w-full border"
+        >
+          {isDisconnecting ? 'Disconnecting...' : '🔓 Disconnect Google Drive'}
+        </Button>
       </div>
     );
   }
@@ -48,15 +102,28 @@ export function GoogleDriveConnect() {
     if (!user) return;
     setIsConnecting(true);
     try {
-      const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&` +
-        `redirect_uri=${encodeURIComponent(window.location.origin + '/api/auth/google-drive/callback')}&` +
-        `state=${user.id}`;
-      window.location.href = googleAuthUrl;
-    } finally {
+      // Use the unified OAuth flow from supabaseClient
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          scopes: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+            include_granted_scopes: 'true',
+          },
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error('Google OAuth error:', error);
+      alert(`Failed to connect to Google: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setIsConnecting(false);
     }
-    // Note: isConnecting will stay true until page redirects
   };
 
   return (
@@ -65,13 +132,13 @@ export function GoogleDriveConnect() {
       <p className="text-gray-600 mb-4">
         Connect your Google Drive to access and manage your files directly from this app.
       </p>
-      <button
+      <Button
         onClick={handleConnectGoogleDrive}
         disabled={isConnecting}
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        className="bg-blue-600 hover:bg-blue-700 text-white w-full"
       >
         {isConnecting ? 'Connecting...' : 'Connect Google Drive'}
-      </button>
+      </Button>
     </div>
   );
 }

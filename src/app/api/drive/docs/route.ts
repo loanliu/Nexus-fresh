@@ -2,218 +2,237 @@ import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { createClient as createSupabaseServerClient } from '@supabase/supabase-js';
 
-// Helper function to get OAuth2 client from Supabase user session
-async function getGoogleOAuth2Client(request: NextRequest) {
-  console.log(' Starting getGoogleOAuth2Client...');
-  
+type GoogleTokenRow = {
+  user_id?: string | null;
+  user_email?: string | null;
+  access_token: string | null;
+  refresh_token: string | null;
+  expires_at: string | null; // ISO
+  scope?: string | null;
+  token_type?: string | null;
+  updated_at?: string | null;
+};
+
+/** Resolve the caller to a Supabase user via (1) SSR cookie or (2) Authorization: Bearer <supabase_access_token> */
+async function resolveSupabaseUser(req: NextRequest) {
   const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-  
-  // Try session first, then fallback to Authorization header
-  let userEmail: string;
-  
-  try {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (user?.email) {
-      userEmail = user.email;
-      console.log('✅ Using email from session:', userEmail);
-    } else {
-      throw new Error('No session user');
-    }
-  } catch (sessionError) {
-    console.log('🔍 Session failed, trying Authorization header...');
-    
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      throw new Error('No authentication found');
-    }
-    
-    // Get user ID from header and look up email
-    const userId = authHeader.replace('Bearer ', '');
-    console.log(' Using user ID from header:', userId);
-    
-    // For now, skip complex user lookup and just return test data
-    throw new Error('Authorization header method needs implementation');
-  }
+  const sbSsr = createRouteHandlerClient({ cookies: () => cookieStore });
 
-  console.log(' Looking for Google tokens for user email:', userEmail);
-  
-  // Get the user's Google access token from the database
-  const { data: tokenData, error: tokenError } = await supabase
+  // Try SSR cookie session
+  let { data: { user } } = await sbSsr.auth.getUser();
+  if (user) return { userId: user.id, email: user.email ?? null };
+
+  // Fallback: Authorization header contains a Supabase access token (NOT a user id)
+  const authHeader = req.headers.get('authorization') || '';
+  const m = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (!m) throw new Error('No Supabase session and no Authorization Bearer token found');
+
+  const supabaseJwt = m[1];
+
+  // Use admin client to resolve JWT -> user
+  const admin = createSupabaseServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY! // server-only
+  );
+  const { data: gotUser, error: userErr } = await admin.auth.getUser(supabaseJwt);
+  if (userErr || !gotUser?.user) {
+    throw new Error('Invalid Supabase access token in Authorization header');
+  }
+  return { userId: gotUser.user.id, email: gotUser.user.email ?? null };
+}
+
+/** Load Google tokens for user; supports either user_id (preferred) or user_email (legacy) */
+async function loadGoogleTokens(userId: string, email: string | null) {
+  const admin = createSupabaseServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  // Prefer user_id if your table has it
+  let { data: row, error } = await admin
     .from('google_access_tokens')
-    .select('access_token, refresh_token, expires_at')
-    .eq('user_email', userEmail)
-    .single();
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle<GoogleTokenRow>();
 
-  console.log('🔍 Token lookup result:', { 
-    hasToken: !!tokenData?.access_token, 
-    tokenError: tokenError?.message,
-    tokenData: tokenData ? { 
-      hasAccessToken: !!tokenData.access_token,
-      hasRefreshToken: !!tokenData.refresh_token,
-      expiresAt: tokenData.expires_at
-    } : null
-  });
-
-  if (tokenError || !tokenData?.access_token) {
-    console.log('❌ Token not found or error:', tokenError?.message);
-    throw new Error('Google access token not found - please re-authenticate with Google');
+  if ((!row || !row.access_token) && email) {
+    // Fallback by email for legacy rows
+    const r2 = await admin
+      .from('google_access_tokens')
+      .select('*')
+      .eq('user_email', email)
+      .maybeSingle<GoogleTokenRow>();
+    row = r2.data ?? null;
+    error = r2.error ?? error;
   }
 
-  console.log('✅ Token found successfully, creating OAuth2 client...');
+  if (error || !row) throw new Error('Google Drive not connected for this account');
+  return { row, admin };
+}
 
-  // Check if token is expired
-  if (tokenData.expires_at && new Date(tokenData.expires_at) <= new Date()) {
-    console.log('❌ Token expired:', tokenData.expires_at);
-    throw new Error('Google access token expired - please re-authenticate with Google');
+/** Refresh Google access token and persist new expiry */
+async function refreshGoogleAccessToken(
+  adminClient: ReturnType<typeof createSupabaseServerClient>,
+  userId: string,
+  refreshToken: string
+) {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID!,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Google refresh_token exchange failed: ${text}`);
+  }
+  const tok = await res.json() as {
+    access_token: string;
+    expires_in: number;
+    scope?: string;
+    token_type?: string;
+  };
+
+  const expiresAtIso = new Date(Date.now() + tok.expires_in * 1000).toISOString();
+
+  // Update by user_id if present; else update by refresh_token owner (email path)
+  const update = {
+    access_token: tok.access_token,
+    expires_at: expiresAtIso,
+    scope: tok.scope,
+    token_type: tok.token_type ?? 'Bearer',
+    updated_at: new Date().toISOString(),
+  };
+
+  // Try update by user_id first; if zero rows updated, fall back to not filtering (shouldn’t happen if table keyed)
+  let { error: upErr, count } = await adminClient
+    .from('google_access_tokens')
+    .update(update, { count: 'exact' })
+    .eq('user_id', userId);
+
+  if (upErr) throw upErr;
+  return { accessToken: tok.access_token, expiresAtIso };
+}
+
+/** Build an OAuth2 client that is ready to call Drive (auto-refresh handled above) */
+async function getGoogleOAuth2Client(req: NextRequest) {
+  const { userId, email } = await resolveSupabaseUser(req);
+
+  const { row, admin } = await loadGoogleTokens(userId, email);
+
+  let accessToken = row.access_token || '';
+  const refreshToken = row.refresh_token || null;
+  const expiresAtMs = row.expires_at ? new Date(row.expires_at).getTime() : 0;
+  const needsRefresh =
+    (!accessToken) ||
+    (!!refreshToken && !!expiresAtMs && expiresAtMs <= Date.now() + 15_000);
+
+  if (needsRefresh) {
+    if (!refreshToken) {
+      throw new Error('No Google refresh_token stored; reconnect with prompt=consent + offline');
+    }
+    const refreshed = await refreshGoogleAccessToken(admin, userId, refreshToken);
+    accessToken = refreshed.accessToken;
   }
 
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
+    process.env.GOOGLE_REDIRECT_URI // not used here, but fine to keep
   );
-  
   oauth2Client.setCredentials({
-    access_token: tokenData.access_token,
-    refresh_token: tokenData.refresh_token
+    access_token: accessToken,
+    refresh_token: refreshToken ?? undefined,
   });
-  
-  console.log('✅ OAuth2 client created successfully');
   return oauth2Client;
 }
 
-// Helper function to filter documents based on requirements
+// ---- Your existing helpers (kept) ----
 function filterDocuments(files: any[]) {
   return files.filter(file => {
-    // Exclude videos, audio, and binary files
     const excludedMimeTypes = [
       'video/',
       'audio/',
       'image/',
       'application/octet-stream',
       'application/zip',
-      'application/x-rar-compressed'
+      'application/x-rar-compressed',
     ];
-    
-    const isExcluded = excludedMimeTypes.some(type => 
-      file.mimeType.startsWith(type)
-    );
-    
-    if (isExcluded) return false;
-    
-    // Include Google Docs, Sheets, Presentations, and PDFs
+    if (excludedMimeTypes.some(type => file.mimeType?.startsWith(type))) return false;
+
     const allowedTypes = [
       'application/vnd.google-apps.document',
       'application/vnd.google-apps.spreadsheet',
       'application/vnd.google-apps.presentation',
-      'application/pdf'
+      'application/pdf',
     ];
-    
     if (!allowedTypes.includes(file.mimeType)) return false;
-    
-    // Exclude files created before January 2020
+
     const createdDate = new Date(file.createdTime);
     const cutoffDate = new Date('2020-01-01T00:00:00Z');
-    
     return createdDate >= cutoffDate;
   });
 }
 
-// Helper function to format file size
 function formatFileSize(bytes: string): string {
   const size = parseInt(bytes);
-  if (size === 0) return '0 B';
-  
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(size) / Math.log(k));
-  
+  if (!Number.isFinite(size) || size <= 0) return 'Unknown';
+  const k = 1024, sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.min(sizes.length - 1, Math.floor(Math.log(size) / Math.log(k)));
   return parseFloat((size / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-// Helper function to get folder path
 async function getFolderPath(drive: any, folderId: string): Promise<string> {
   try {
-    const response = await drive.files.get({
-      fileId: folderId,
-      fields: 'name,parents'
-    });
-    
-    const folder = response.data;
-    if (folder.parents && folder.parents.length > 0) {
-      const parentPath = await getFolderPath(drive, folder.parents[0]);
-      return parentPath ? `${parentPath} > ${folder.name}` : folder.name;
+    const res = await drive.files.get({ fileId: folderId, fields: 'name,parents' });
+    const folder = res.data;
+    if (folder.parents?.length) {
+      const parent = await getFolderPath(drive, folder.parents[0]);
+      return parent ? `${parent} > ${folder.name}` : folder.name;
     }
     return folder.name;
-  } catch (error) {
-    console.error('Error getting folder path:', error);
+  } catch {
     return '';
   }
 }
 
-// Main API route handler
+// ---- Route handler ----
 export async function GET(request: NextRequest) {
   console.log('🚀 GET /api/drive/docs called');
-  
   try {
-    // Get OAuth2 client
     const oauth2Client = await getGoogleOAuth2Client(request);
-    console.log('✅ OAuth2 client obtained');
-
-    // Create Google Drive API client
     const drive = google.drive({ version: 'v3', auth: oauth2Client });
-    console.log('✅ Google Drive client created');
 
-    // Get query parameters
     const { searchParams } = new URL(request.url);
-    const pageSize = parseInt(searchParams.get('pageSize') || '20');
-    const pageToken = searchParams.get('pageToken') || '';
+    const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);
+    const pageToken = searchParams.get('pageToken') || undefined;
     const query = searchParams.get('q') || '';
 
-    console.log('🔍 Query parameters:', { pageSize, pageToken: !!pageToken, query });
+    const q = query ? `fullText contains '${query.replace(/'/g, "\\'")}' and trashed = false` : 'trashed = false';
 
-    // Build search query
-    let searchQuery = '';
-    if (query) {
-      searchQuery = `fullText contains '${query}'`;
-    }
-
-    // Get files from Google Drive
-    const response = await drive.files.list({
+    const resp = await drive.files.list({
       pageSize,
-      pageToken: pageToken || undefined,
-      q: searchQuery,
-      fields: 'nextPageToken, files(id, name, mimeType, description, webViewLink, createdTime, modifiedTime, size, parents)',
-      orderBy: 'modifiedTime desc'
+      pageToken,
+      q,
+      fields: 'nextPageToken, files(id,name,mimeType,description,webViewLink,createdTime,modifiedTime,size,parents)',
+      orderBy: 'modifiedTime desc',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+      corpora: 'user',
     });
 
-    console.log('✅ Google Drive API response received:', { 
-      fileCount: response.data.files?.length || 0,
-      hasNextPage: !!response.data.nextPageToken
-    });
+    const files = resp.data.files ?? [];
+    const filtered = filterDocuments(files);
 
-    if (!response.data.files) {
-      console.log('⚠️ No files returned from Google Drive');
-      return NextResponse.json({ documents: [], nextPageToken: null });
-    }
-
-    // Filter and process files
-    const filteredFiles = filterDocuments(response.data.files);
-    console.log('🔍 Files after filtering:', { 
-      originalCount: response.data.files.length,
-      filteredCount: filteredFiles.length
-    });
-
-    // Get folder paths for files
-    const documentsWithPaths = await Promise.all(
-      filteredFiles.map(async (file) => {
-        let folderPath = '';
-        if (file.parents && file.parents.length > 0) {
-          folderPath = await getFolderPath(drive, file.parents[0]);
-        }
-
+    const withPaths = await Promise.all(
+      filtered.map(async (file) => {
+        const folderPath = file.parents?.length ? await getFolderPath(drive, file.parents[0]) : '';
         return {
           id: file.id,
           name: file.name,
@@ -223,47 +242,20 @@ export async function GET(request: NextRequest) {
           folderPath,
           createdTime: file.createdTime,
           modifiedTime: file.modifiedTime,
-          size: file.size ? formatFileSize(file.size) : 'Unknown'
+          size: file.size ? formatFileSize(file.size) : 'Unknown',
         };
       })
     );
 
-    console.log('✅ Documents processed successfully');
+    return NextResponse.json({ documents: withPaths, nextPageToken: resp.data.nextPageToken ?? null }, { status: 200 });
+  } catch (err: any) {
+    console.error('❌ Error in GET /api/drive/docs:', err);
+    const msg = (err?.message as string) || 'Failed to load documents';
+    const status =
+      /No Supabase session|Authorization Bearer|Invalid Supabase access token/.test(msg) ? 401 :
+      /not connected|No Google refresh_token/.test(msg) ? 400 :
+      500;
 
-    return NextResponse.json({
-      documents: documentsWithPaths,
-      nextPageToken: response.data.nextPageToken || null
-    });
-
-  } catch (error) {
-    console.error('❌ Error in GET /api/drive/docs:', error);
-    
-    let errorMessage = 'Failed to load documents';
-    let statusCode = 500;
-
-    if (error instanceof Error) {
-      if (error.message.includes('Authentication required')) {
-        errorMessage = 'Authentication required - Please sign in with Google to access your Drive documents';
-        statusCode = 401;
-      } else if (error.message.includes('Google access token not found')) {
-        errorMessage = 'Google access token not found - please re-authenticate with Google';
-        statusCode = 401;
-      } else if (error.message.includes('token expired')) {
-        errorMessage = 'Google access token expired - please re-authenticate with Google';
-        statusCode = 401;
-      } else if (error.message.includes('Authorization header method needs implementation')) {
-        errorMessage = 'Please refresh and try again - using Authorization header method';
-        statusCode = 401;
-      } else {
-        errorMessage = error.message;
-      }
-    }
-
-    console.log('❌ Returning error response:', { statusCode, errorMessage });
-    
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: statusCode }
-    );
+    return NextResponse.json({ error: msg }, { status });
   }
 }

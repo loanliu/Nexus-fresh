@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useGoogleDocs, GoogleDocument } from '@/hooks/use-google-docs';
 import { SearchFilters } from './search-filters';
 import GoogleDriveAuth from './google-drive-auth';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function GoogleResources() {
   const [isClient, setIsClient] = useState(false);
@@ -61,11 +61,23 @@ export default function GoogleResources() {
 
       if (user?.email) {
         try {
-          const { data } = await supabase
+          // First try to find tokens by user_id (preferred method)
+          let { data } = await supabase
             .from('google_access_tokens')
             .select('id')
-            .eq('user_email', user.email)
-            .single();
+            .eq('user_id', user.id)
+            .maybeSingle();
+          
+          // If no tokens found by user_id, try by user_email (legacy method)
+          if (!data) {
+            const { data: emailData } = await supabase
+              .from('google_access_tokens')
+              .select('id')
+              .eq('user_email', user.email)
+              .maybeSingle();
+            data = emailData;
+          }
+          
           setIsConnected(!!data);
         } finally {
           setChecking(false);
@@ -95,7 +107,8 @@ export default function GoogleResources() {
     );
   }
 
-  if (!user || checking || isConnected) return null;
+  // Don't render anything until we've checked the connection status
+  if (!user || checking) return null;
 
   const handleFiltersChange = (filters: any) => {
     // Update search query when filters change
@@ -119,13 +132,27 @@ export default function GoogleResources() {
     if (!user) return;
     setIsConnecting(true);
     try {
-      const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&` +
-        `redirect_uri=${encodeURIComponent(window.location.origin + '/api/auth/google-drive/callback')}&` +
-        `response_type=code&` +
-        `scope=${encodeURIComponent('https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.email')}&` +
-        `state=${user.id}`;
-      window.location.href = googleAuthUrl;
+      // Use the same OAuth flow as the main Google authentication
+      // This will reuse the existing Google session if available
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          scopes: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+            include_granted_scopes: 'true',
+          },
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error('Google OAuth error:', error);
+      alert(`Failed to connect to Google: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsConnecting(false);
     }
@@ -142,12 +169,49 @@ export default function GoogleResources() {
         </p>
       </div>
       
-      {/* Google Drive Connection Section - Only show when not connected */}
-      {!isLoading && !error && (!filteredDocuments || filteredDocuments.length === 0) && (
+      {/* Google Drive Connection Section - Show when not connected */}
+      {!isConnected && (
         <div className="mb-6">
           <GoogleDriveAuth />
         </div>
       )}      
+
+      {/* Show disconnect button when connected */}
+      {isConnected && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-green-800">✅ Google Drive Connected</h3>
+              <p className="text-xs text-green-700 mt-1">
+                You're successfully connected to Google Drive. Your documents should appear below.
+              </p>
+            </div>
+            <Button
+              onClick={async () => {
+                if (!user) return;
+                try {
+                  // Clear Google access tokens from database
+                  await supabase
+                    .from('google_access_tokens')
+                    .delete()
+                    .eq('user_email', user.email);
+                  
+                  // Update local state
+                  setIsConnected(false);
+                  
+                  alert('Google Drive disconnected successfully! Please refresh the page.');
+                } catch (error) {
+                  console.error('Error disconnecting:', error);
+                  alert('Failed to disconnect. Please try again.');
+                }
+              }}
+              className="text-red-600 border-red-300 hover:bg-red-50 border"
+            >
+              🔓 Disconnect Google Drive
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Search Filters */}
       <SearchFilters 
@@ -204,8 +268,7 @@ export default function GoogleResources() {
           ) : (
             <Button
               onClick={handleRefresh}
-              variant="outline"
-              size="sm"
+
               className="mt-2"
             >
               Try Again
@@ -283,7 +346,7 @@ export default function GoogleResources() {
             onClick={loadMoreDocuments}
             disabled={isLoadingMore}
             className="px-8 py-3"
-            variant="outline"
+            
           >
             {isLoadingMore ? (
               <>

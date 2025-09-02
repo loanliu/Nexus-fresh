@@ -3,9 +3,13 @@
 import { supabase } from './supabase'; // Import the shared client instead of creating a new one
 import { Database } from '@/types/supabase';
 
+// Export the supabase client directly for use in other files
+export { supabase };
+
 // Supabase configuration
 //const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 //const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
 
 // Auth helper functions
 export const auth = {
@@ -52,6 +56,13 @@ export const auth = {
     return await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
+        scopes: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
+        // This is the key bit:
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+          include_granted_scopes: 'true', // nice-to-have
+        },
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
