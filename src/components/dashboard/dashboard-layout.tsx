@@ -35,13 +35,13 @@ const navigationTabs = [
   { id: 'search', label: 'Search', icon: Search, description: 'Advanced search across all content' },
   { id: 'projects', label: 'Projects', icon: Briefcase, description: 'Client project management' },
   { id: 'resources', label: 'Resources', icon: FolderOpen, description: 'Manage files and content' },
-  { id: 'google-resources', label: 'Google Resources', icon: FolderOpen, description: 'Google Drive documents and search' },
+  // { id: 'google-resources', label: 'Google Resources', icon: FolderOpen, description: 'Google Drive documents and search' },
   { id: 'task-manager', label: 'Task Manager', icon: CheckSquare, description: 'Manage tasks, projects, and labels' },
   { id: 'categories', label: 'Categories', icon: Tag, description: 'Organize with categories and tags' },
   { id: 'api-keys', label: 'API Keys', icon: Key, description: 'Secure API key management' },
   { id: 'analytics', label: 'Analytics', icon: BarChart3, description: 'Usage statistics and insights' },
   { id: 'feedback', label: 'Feedback', icon: MessageSquare, description: 'Share your thoughts and suggestions' },
-  { id: 'google-drive', label: 'Google Drive', icon: FolderOpen, description: 'Connect and manage Google Drive integration' },  
+  // { id: 'google-drive', label: 'Google Drive', icon: FolderOpen, description: 'Connect and manage Google Drive integration' },  
 ];
 
 export function DashboardLayout({ children, activeTab, onTabChange }: DashboardLayoutProps) {

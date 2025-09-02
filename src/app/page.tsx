@@ -9,13 +9,13 @@ import { ProjectManager } from '@/components/projects/project-manager';
 import { TaskManager } from '@/components/task-manager/task-manager';
 import { AdvancedSearch } from '@/components/search/advanced-search';
 import { Analytics } from '@/components/analytics/analytics';
-import GoogleResources from '@/components/google-resources/google-resources';
+// import GoogleResources from '@/components/google-resources/google-resources';
 import { FeedbackPage } from '@/components/feedback/feedback-page';
 import { EnhancedAuthForm } from '@/components/auth/enhanced-auth-form';
 import { useAuth } from '@/components/auth/auth-provider';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { GoogleDriveConnect } from '@/components/GoogleDriveConnect';
-import { GoogleDriveStatus } from '@/components/GoogleDriveStatus'; 
+// import { GoogleDriveConnect } from '@/components/GoogleDriveConnect';
+// import { GoogleDriveStatus } from '@/components/GoogleDriveStatus'; 
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
@@ -37,8 +37,8 @@ export default function DashboardPage() {
     switch (activeTab) {
       case 'resources':
         return <ResourceManager />;
-      case 'google-resources':
-        return <GoogleResources />;
+      // case 'google-resources':
+      //   return <GoogleResources />;
       case 'task-manager':
         return <TaskManager />;
       case 'categories':
@@ -53,19 +53,19 @@ export default function DashboardPage() {
         return <Analytics />;
       case 'feedback':
         return <FeedbackPage />;
-      case 'google-drive':
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Google Drive Integration</h2>
-            </div>
-            
-            <div className="grid gap-6 md:grid-cols-2">
-              <GoogleDriveStatus />
-              <GoogleDriveConnect />
-            </div>
-          </div>
-        );       
+      // case 'google-drive':
+      //   return (
+      //     <div className="space-y-6">
+      //       <div className="flex items-center justify-between">
+      //         <h2 className="text-2xl font-bold">Google Drive Integration</h2>
+      //       </div>
+      //       
+      //       <div className="grid gap-6 md:grid-cols-2">
+      //         <GoogleDriveStatus />
+      //         <GoogleDriveConnect />
+      //       </div>
+      //     </div>
+      //   );       
       default:
         return <ProjectManager />;
     }
