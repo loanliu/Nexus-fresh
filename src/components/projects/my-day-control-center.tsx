@@ -33,7 +33,8 @@ export function MyDayControlCenter({ onTaskUpdate }: MyDayControlCenterProps) {
     status: 'pending',
     priority: 'medium',
     effort: 3,
-    user_id: user?.id || ''
+    user_id: user?.id || '',
+    project_id: null // My Day tasks don't belong to any project
   });
 
   const { data: allTasks = [], isLoading } = useTasks();
@@ -43,7 +44,12 @@ export function MyDayControlCenter({ onTaskUpdate }: MyDayControlCenterProps) {
   // Filter tasks for selected date
   const todayTasks = allTasks.filter(task => {
     if (!task.due_date) return false;
-    const taskDate = new Date(task.due_date).toISOString().split('T')[0];
+    // Use UTC methods to avoid timezone conversion issues
+    const date = new Date(task.due_date);
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const taskDate = `${year}-${month}-${day}`;
     return taskDate === selectedDate;
   });
 
@@ -93,11 +99,17 @@ export function MyDayControlCenter({ onTaskUpdate }: MyDayControlCenterProps) {
       return;
     }
 
+    if (!user?.id) {
+      toast.error('Please sign in to create tasks');
+      return;
+    }
+
     try {
       const createdTask = await createTask.mutateAsync({
         ...newTask,
         due_date: selectedDate,
-        user_id: user?.id || ''
+        user_id: user.id,
+        project_id: null // Explicitly set to null for My Day tasks
       });
 
       setNewTask({
@@ -106,7 +118,8 @@ export function MyDayControlCenter({ onTaskUpdate }: MyDayControlCenterProps) {
         status: 'pending',
         priority: 'medium',
         effort: 3,
-        user_id: user?.id || ''
+        user_id: user.id,
+        project_id: null
       });
       setShowAddTask(false);
       toast.success('Task added successfully!');

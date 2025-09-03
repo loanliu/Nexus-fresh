@@ -35,6 +35,9 @@ export function ManageTasksModal({ project, onClose, onEditTask }: ManageTasksMo
   // Use the useTasks hook to get fresh, reactive task data
   const { data: tasks, isLoading, isError } = useTasks(project.id);
   
+  // Debug: Log the cache key being used
+  console.log('🔍 ManageTasksModal cache key:', ['tasks', project.id]);
+  
   // Debug logging for data flow
   console.log('🔍 ManageTasksModal render:', {
     projectId: project.id,
@@ -289,7 +292,12 @@ export function ManageTasksModal({ project, onClose, onEditTask }: ManageTasksMo
                         {task.due_date && (
                           <span className="flex items-center space-x-1">
                             <Calendar className="w-3 h-3" />
-                            <span>{new Date(task.due_date).toLocaleDateString()}</span>
+                            <span>{new Date(task.due_date).toLocaleDateString('en-US', { 
+                              year: 'numeric', 
+                              month: 'numeric', 
+                              day: 'numeric',
+                              timeZone: 'UTC'
+                            })}</span>
                           </span>
                         )}
                         <span className={`px-2 py-1 rounded-full ${

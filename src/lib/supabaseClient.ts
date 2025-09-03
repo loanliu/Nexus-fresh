@@ -41,6 +41,7 @@ export const auth = {
       email,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
+        shouldCreateUser: true, // Allow creating new users
       },
     });
     
@@ -53,19 +54,25 @@ export const auth = {
 
   // Sign in with Google OAuth
   signInWithGoogle: async () => {
-    return await supabase.auth.signInWithOAuth({
+    console.log('Starting Google OAuth sign-in...');
+    console.log('Redirect URL:', `${window.location.origin}/auth/callback`);
+    
+    const result = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         scopes: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
-        // This is the key bit:
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
-          include_granted_scopes: 'true', // nice-to-have
+          include_granted_scopes: 'true',
         },
         redirectTo: `${window.location.origin}/auth/callback`,
+        skipBrowserRedirect: false, // Ensure browser redirect happens
       },
     });
+    
+    console.log('Google OAuth result:', result);
+    return result;
   },
 
   // Sign out
@@ -85,7 +92,10 @@ export const auth = {
 
   // Exchange code for session (for OAuth callbacks)
   exchangeCodeForSession: async (authCode: string) => {
-    return await supabase.auth.exchangeCodeForSession(authCode);
+    console.log('Exchanging code for session:', authCode);
+    const result = await supabase.auth.exchangeCodeForSession(authCode);
+    console.log('Exchange result:', result);
+    return result;
   },
 
   // Listen to auth state changes

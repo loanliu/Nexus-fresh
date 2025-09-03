@@ -77,7 +77,19 @@ export function TaskForm({ open, onClose, task, onSuccess }: TaskFormProps) {
         description: task.description || undefined,
         status: task.status,
         priority: task.priority,
-        due_date: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : undefined,
+        due_date: task.due_date ? (() => {
+          // Convert the database date to YYYY-MM-DD format for the date input
+          // Use UTC methods to avoid timezone conversion issues
+          console.log('🔍 TaskForm: Converting date:', task.due_date);
+          const date = new Date(task.due_date);
+          console.log('🔍 TaskForm: Parsed date:', date);
+          const year = date.getUTCFullYear();
+          const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(date.getUTCDate()).padStart(2, '0');
+          const formattedDate = `${year}-${month}-${day}`;
+          console.log('🔍 TaskForm: Formatted date for input:', formattedDate);
+          return formattedDate;
+        })() : undefined,
         estimated_hours: task.estimated_hours || undefined,
         project_id: task.project_id || undefined,
         parent_task_id: task.parent_task_id || undefined,
@@ -342,6 +354,7 @@ export function TaskForm({ open, onClose, task, onSuccess }: TaskFormProps) {
                 type="date"
                 {...register('due_date')}
                 className="w-full"
+                value={watch('due_date') || ''}
               />
             </div>
 

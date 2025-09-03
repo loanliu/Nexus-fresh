@@ -23,7 +23,20 @@ export function TaskModal({ task, projectId, onClose }: TaskModalProps) {
   const [priority, setPriority] = useState(task.priority);
   const [effort, setEffort] = useState(task.effort);
   const [estimatedHours, setEstimatedHours] = useState(task.estimated_hours || 8);
-  const [dueDate, setDueDate] = useState(task.due_date || '');
+  const [dueDate, setDueDate] = useState(() => {
+    if (!task.due_date) return '';
+    // Convert the database date to YYYY-MM-DD format for the date input
+    // Use UTC methods to avoid timezone conversion issues
+    console.log('🔍 TaskModal: Converting date:', task.due_date);
+    const date = new Date(task.due_date);
+    console.log('🔍 TaskModal: Parsed date:', date);
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const formattedDate = `${year}-${month}-${day}`;
+    console.log('🔍 TaskModal: Formatted date for input:', formattedDate);
+    return formattedDate;
+  });
   
   const updateTask = useUpdateTask(projectId);
   const createTask = useCreateTask(); // Add this for new tasks

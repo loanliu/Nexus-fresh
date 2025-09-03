@@ -29,6 +29,7 @@ export type Task = {
 export function useTasks(projectId?: string) {
   const queryKey = tasksKey(projectId);
   console.log('🔍 useTasks: Hook called with queryKey:', queryKey, 'projectId:', projectId);
+  console.log('🔍 useTasks: Cache key being used:', queryKey);
   
   return useQuery({
     queryKey,

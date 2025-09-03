@@ -169,6 +169,12 @@ export const useCreateTask = () => {
         queryClient.invalidateQueries({ queryKey: projectManagementKeys.project(newTask.project_id) });
       }
       
+      // CRITICAL: Invalidate the projects cache so project cards refresh with updated task counts
+      queryClient.invalidateQueries({ queryKey: projectManagementKeys.projects() });
+      
+      // CRITICAL: Also invalidate the task manager cache
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      
       toast.success('Task created successfully!');
     },
     onError: (error) => {
@@ -185,11 +191,23 @@ export const useUpdateTask = () => {
     mutationFn: ({ id, updates }: { id: string; updates: UpdateTaskData }) =>
       projectManagementClient.updateTask(id, updates),
     onSuccess: (updatedTask) => {
+      console.log('🔄 useUpdateTask: Task updated, invalidating caches for:', updatedTask);
       queryClient.invalidateQueries({ queryKey: projectManagementKeys.tasks() });
       queryClient.invalidateQueries({ queryKey: projectManagementKeys.task(updatedTask.id) });
       if (updatedTask.project_id) {
         queryClient.invalidateQueries({ queryKey: projectManagementKeys.project(updatedTask.project_id) });
+        // Also invalidate the useTasks hook cache
+        console.log('🔄 useUpdateTask: Invalidating useTasks cache with key:', ['tasks', updatedTask.project_id]);
+        queryClient.invalidateQueries({ queryKey: ['tasks', updatedTask.project_id] });
       }
+      
+      // CRITICAL: Invalidate the projects cache so project cards refresh with updated task details
+      queryClient.invalidateQueries({ queryKey: projectManagementKeys.projects() });
+      
+      // CRITICAL: Also invalidate the task manager cache
+      console.log('🔄 useUpdateTask: Invalidating task manager cache with key:', ['tasks']);
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      
       toast.success('Task updated successfully!');
     },
     onError: (error) => {
@@ -214,6 +232,11 @@ export const useDeleteTask = () => {
       // Also invalidate the old project-management keys for backward compatibility
       queryClient.invalidateQueries({ queryKey: projectManagementKeys.tasks() });
       queryClient.removeQueries({ queryKey: projectManagementKeys.task(deletedId) });
+      
+      // CRITICAL: Invalidate the projects cache so project cards refresh with updated task counts
+      queryClient.invalidateQueries({ queryKey: projectManagementKeys.projects() });
+      
+      // CRITICAL: Also invalidate the task manager cache (already done above with ['tasks'])
       
       toast.success('Task deleted successfully!');
     },

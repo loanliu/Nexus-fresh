@@ -142,8 +142,22 @@ export const useCreateTask = () => {
 
       return task;
     },
-    onSuccess: () => {
+    onSuccess: (newTask) => {
+      // Invalidate task manager cache
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tasks });
+      
+      // CRITICAL: Also invalidate project management cache to sync both systems
+      queryClient.invalidateQueries({ queryKey: ['tasks', newTask.project_id] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'all'] });
+      queryClient.invalidateQueries({ queryKey: ['project-management', 'tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['project-management', 'projects'] });
+      if (newTask.project_id) {
+        queryClient.invalidateQueries({ queryKey: ['project-management', 'projects', newTask.project_id] });
+      }
+      
+      // CRITICAL: Also invalidate the ManageTasksModal cache (useTasks hook)
+      queryClient.invalidateQueries({ queryKey: ['tasks', newTask.project_id] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'all'] });
     },
   });
 };
@@ -197,8 +211,22 @@ export const useUpdateTask = () => {
       return task;
     },
     onSuccess: (updatedTask) => {
+      // Invalidate task manager cache
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tasks });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.task(updatedTask.id) });
+      
+      // CRITICAL: Also invalidate project management cache to sync both systems
+      queryClient.invalidateQueries({ queryKey: ['tasks', updatedTask.project_id] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'all'] });
+      queryClient.invalidateQueries({ queryKey: ['project-management', 'tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['project-management', 'projects'] });
+      if (updatedTask.project_id) {
+        queryClient.invalidateQueries({ queryKey: ['project-management', 'projects', updatedTask.project_id] });
+      }
+      
+      // CRITICAL: Also invalidate the ManageTasksModal cache (useTasks hook)
+      queryClient.invalidateQueries({ queryKey: ['tasks', updatedTask.project_id] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'all'] });
     },
   });
 };
@@ -216,7 +244,16 @@ export const useDeleteTask = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      // Invalidate task manager cache
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tasks });
+      
+      // CRITICAL: Also invalidate project management cache to sync both systems
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['project-management', 'tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['project-management', 'projects'] });
+      
+      // CRITICAL: Also invalidate the ManageTasksModal cache (useTasks hook)
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
   });
 };

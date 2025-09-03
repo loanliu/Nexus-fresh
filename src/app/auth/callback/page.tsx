@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/supabaseClient';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -10,6 +10,7 @@ export default function AuthCallback() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('Processing authentication...');
   const router = useRouter();
+  const hasHandledError = useRef(false);
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -23,78 +24,135 @@ export default function AuthCallback() {
         const error = urlParams.get('error');
         const errorDescription = urlParams.get('error_description');
 
+        console.log('Auth callback URL:', url);
+        console.log('URL params:', { code, error, errorDescription });
+
         if (error) {
           console.error('Auth error:', error, errorDescription);
-          setStatus('error');
-          setMessage(errorDescription || 'Authentication failed. Please try again.');
-          
-          // Redirect to login after showing error
-          setTimeout(() => {
-            router.push('/');
-          }, 3000);
-          return;
-        }
-
-        if (code) {
-          // Exchange the code for a session
-          const { data, error: sessionError } = await auth.exchangeCodeForSession(url);
-          
-          if (sessionError) {
-            console.error('Session exchange error:', sessionError);
+          if (!hasHandledError.current) {
+            hasHandledError.current = true;
             setStatus('error');
-            setMessage('Failed to complete authentication. Please try again.');
+            setMessage(errorDescription || 'Authentication failed. Please try again.');
             
             // Redirect to login after showing error
             setTimeout(() => {
               router.push('/');
             }, 3000);
-            return;
           }
+          return;
+        }
 
-          if (data.session) {
-            setStatus('success');
-            setMessage('Authentication successful! Redirecting...');
+        if (code) {
+          // This is an OAuth flow (Google, etc.)
+          console.log('OAuth code found, exchanging for session...');
+          console.log('Full URL:', url);
+          
+          try {
+            const { data, error: sessionError } = await auth.exchangeCodeForSession(url);
             
-            // Redirect to dashboard
-            setTimeout(() => {
-              router.push('/');
-            }, 1500);
-          } else {
-            setStatus('error');
-            setMessage('No session created. Please try again.');
+            console.log('Session exchange result:', { 
+              hasSession: !!data.session, 
+              hasUser: !!data.user,
+              error: sessionError?.message 
+            });
             
-            setTimeout(() => {
-              router.push('/');
-            }, 3000);
+            if (sessionError) {
+              console.error('Session exchange error:', sessionError);
+              if (!hasHandledError.current) {
+                hasHandledError.current = true;
+                setStatus('error');
+                setMessage(`Authentication failed: ${sessionError.message || 'Please try again.'}`);
+                
+                setTimeout(() => {
+                  router.push('/');
+                }, 3000);
+              }
+              return;
+            }
+
+            if (data.session) {
+              setStatus('success');
+              setMessage('Authentication successful! Redirecting...');
+              
+              setTimeout(() => {
+                router.push('/');
+              }, 1500);
+            } else {
+              if (!hasHandledError.current) {
+                hasHandledError.current = true;
+                setStatus('error');
+                setMessage('No session created. Please try again.');
+                
+                setTimeout(() => {
+                  router.push('/');
+                }, 3000);
+              }
+            }
+          } catch (exchangeError) {
+            console.error('Code exchange error:', exchangeError);
+            if (!hasHandledError.current) {
+              hasHandledError.current = true;
+              setStatus('error');
+              setMessage('Failed to complete authentication. Please try again.');
+              
+              setTimeout(() => {
+                router.push('/');
+              }, 3000);
+            }
           }
         } else {
-          // Check if we already have a session (magic link direct access)
-          const { data: sessionData } = await auth.getSession();
+          // For Magic Links, check if we have a session
+          // Magic Links should automatically create a session
+          const { data: sessionData, error: sessionError } = await auth.getSession();
+          
+          console.log('Session data:', sessionData);
+          console.log('Session error:', sessionError);
+          
+          if (sessionError) {
+            console.error('Session error:', sessionError);
+            if (!hasHandledError.current) {
+              hasHandledError.current = true;
+              setStatus('error');
+              setMessage('Failed to get session. Please try again.');
+              
+              setTimeout(() => {
+                router.push('/');
+              }, 3000);
+            }
+            return;
+          }
           
           if (sessionData.session) {
             setStatus('success');
-            setMessage('Already authenticated! Redirecting...');
+            setMessage('Authentication successful! Redirecting...');
             
             setTimeout(() => {
               router.push('/');
             }, 1500);
           } else {
-            setStatus('error');
-            setMessage('No authentication code found. Please try again.');
-            
-            setTimeout(() => {
-              router.push('/');
-            }, 3000);
+            if (!hasHandledError.current) {
+              hasHandledError.current = true;
+              setStatus('error');
+              setMessage('No session found. Please try signing in again.');
+              
+              setTimeout(() => {
+                router.push('/');
+              }, 3000);
+            }
           }
         }
       } catch (error) {
         console.error('Auth callback error:', error);
-        setStatus('error');
-        setMessage('An unexpected error occurred. Please try again.');
-        
-        setTimeout(() => {
-          router.push('/');
-        }, 3000);
+        // Only set error if we haven't already set one
+        if (!hasHandledError.current) {
+          hasHandledError.current = true;
+          setStatus('error');
+          setMessage('An unexpected error occurred. Please try again.');
+          
+          setTimeout(() => {
+            router.push('/');
+          }, 3000);
+        }
       }
     };
 

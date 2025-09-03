@@ -14,7 +14,8 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    flowType: 'pkce', // Use PKCE flow for better security
+    // Remove PKCE for now to fix the OAuth issue
+    // flowType: 'pkce', 
   },
   realtime: {
     params: {

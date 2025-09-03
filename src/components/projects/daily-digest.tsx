@@ -252,7 +252,12 @@ export function DailyDigest({ onSettingsUpdate }: DailyDigestProps) {
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">{task.title}</p>
                     <p className="text-sm text-gray-600">
-                      Due: {new Date(task.due_date!).toLocaleDateString()} • Effort: {task.effort}
+                      Due: {new Date(task.due_date!).toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'numeric', 
+                        day: 'numeric',
+                        timeZone: 'UTC'
+                      })} • Effort: {task.effort}
                     </p>
                   </div>
                   <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
