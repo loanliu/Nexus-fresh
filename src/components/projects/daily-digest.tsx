@@ -18,12 +18,14 @@ import {
   Zap,
   Calendar,
   Eye,
-  EyeOff
+  EyeOff,
+  Edit
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Task, Project, DailyDigestSettings } from '@/types/project-management';
 import { useTasks, useDailyDigestSettings } from '@/hooks/use-project-management';
 import { useAuth } from '@/components/auth/auth-provider';
+import { TaskModal } from '@/components/TaskModal';
 
 interface DailyDigestProps {
   onSettingsUpdate?: (settings: DailyDigestSettings) => void;
@@ -34,6 +36,7 @@ export function DailyDigest({ onSettingsUpdate }: DailyDigestProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [lastSent, setLastSent] = useState<string | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const { data: allTasks = [] } = useTasks();
   const { data: digestSettings, isLoading: settingsLoading } = useDailyDigestSettings();
@@ -224,13 +227,23 @@ export function DailyDigest({ onSettingsUpdate }: DailyDigestProps) {
                       Effort: {task.effort} • Priority: {task.priority}
                     </p>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    task.priority === 'high' ? 'bg-red-100 text-red-800' :
-                    task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-green-100 text-green-800'
-                  }`}>
-                    {task.priority}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => setEditingTask(task)}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      task.priority === 'high' ? 'bg-red-100 text-red-800' :
+                      task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {task.priority}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -260,9 +273,19 @@ export function DailyDigest({ onSettingsUpdate }: DailyDigestProps) {
                       })} • Effort: {task.effort}
                     </p>
                   </div>
-                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                    At Risk
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => setEditingTask(task)}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                      At Risk
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -287,9 +310,19 @@ export function DailyDigest({ onSettingsUpdate }: DailyDigestProps) {
                       High priority • Effort: {task.effort}
                     </p>
                   </div>
-                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                    High Priority
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => setEditingTask(task)}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      High Priority
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -314,9 +347,19 @@ export function DailyDigest({ onSettingsUpdate }: DailyDigestProps) {
                       Last activity: {new Date(task.updated_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                    Idle
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => setEditingTask(task)}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      Idle
+                    </span>
+                  </div>
                 </div>
               ))}
               {digestData.idleTasks.length > 5 && (
@@ -479,6 +522,15 @@ export function DailyDigest({ onSettingsUpdate }: DailyDigestProps) {
             </span>
           </div>
         </div>
+      )}
+
+      {/* Task Edit Modal */}
+      {editingTask && (
+        <TaskModal
+          task={editingTask}
+          projectId={editingTask.project_id}
+          onClose={() => setEditingTask(null)}
+        />
       )}
     </div>
   );

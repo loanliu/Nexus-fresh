@@ -104,6 +104,16 @@ export function useUpdateTask(projectId?: string) {
         console.log('🔄 useUpdateTask: Cache updated with server response:', updatedProjects);
         return updatedProjects;
       });
+
+      // CRITICAL: Also invalidate the project management tasks cache used by Daily Digest
+      console.log('🔄 useUpdateTask: Invalidating project management tasks cache for Daily Digest refresh');
+      queryClient.invalidateQueries({ queryKey: ['project-management', 'tasks'] });
+      
+      // Also invalidate the useTasks cache for backward compatibility
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'all'] });
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
+      }
     },
     onSettled: () => {
       console.log('🔄 useUpdateTask: Mutation settled, NOT invalidating to preserve optimistic updates');
