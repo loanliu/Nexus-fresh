@@ -17,8 +17,7 @@ type GoogleTokenRow = {
 
 /** Resolve the caller to a Supabase user via (1) SSR cookie or (2) Authorization: Bearer <supabase_access_token> */
 async function resolveSupabaseUser(req: NextRequest) {
-  const cookieStore = await cookies();
-  const sbSsr = createRouteHandlerClient({ cookies: () => cookieStore });
+  const sbSsr = createRouteHandlerClient({ cookies });
 
   // Try SSR cookie session
   let { data: { user } } = await sbSsr.auth.getUser();
