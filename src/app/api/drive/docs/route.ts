@@ -15,7 +15,7 @@ type GoogleTokenRow = {
   updated_at?: string | null;
 };
 
-/** Resolve the caller to a Supabase user via (1) SSR cookie or (2) Authorization: Bearer <supabase_access_token> */
+/** Resolve the caller to a Supabase user via (1) SSR cookie or (2) Authorization: Bearer <supabase_access_token>  */
 async function resolveSupabaseUser(req: NextRequest) {
   const sbSsr = createRouteHandlerClient({ cookies });
 
