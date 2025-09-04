@@ -73,7 +73,7 @@ async function loadGoogleTokens(userId: string, email: string | null) {
 
 /** Refresh Google access token and persist new expiry */
 async function refreshGoogleAccessToken(
-  adminClient: ReturnType<typeof createSupabaseServerClient>,
+  adminClient: any, // Fix: Simplified type to avoid complex Supabase type issues
   userId: string,
   refreshToken: string
 ) {
