@@ -19,7 +19,7 @@ import React from 'react'; // Added missing import
 const taskFormSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255, 'Title must be less than 255 characters'),
   description: z.string().optional().or(z.literal('')),
-  status: z.enum(['todo', 'in_progress', 'done', 'archived']),
+  status: z.enum(['pending', 'in_progress', 'completed', 'cancelled']),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
   due_date: z.string().optional().or(z.literal('')),
   estimated_hours: z.union([z.string(), z.number()]).optional().or(z.literal('')).transform((val) => {
@@ -110,7 +110,7 @@ export function TaskForm({ open, onClose, task, onSuccess }: TaskFormProps) {
       reset({
         title: '',
         description: undefined,
-        status: 'todo',
+        status: 'pending',
         priority: 'medium',
         due_date: undefined,
         estimated_hours: undefined,

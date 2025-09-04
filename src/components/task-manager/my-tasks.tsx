@@ -27,9 +27,9 @@ export function MyTasks({ onEditTask }: MyTasksProps) {
   const myTasks = tasks;
 
   // Group tasks by status
-  const todoTasks = myTasks.filter(task => task.status === 'todo');
+  const pendingTasks = myTasks.filter(task => task.status === 'pending');
   const inProgressTasks = myTasks.filter(task => task.status === 'in_progress');
-  const doneTasks = myTasks.filter(task => task.status === 'done');
+  const completedTasks = myTasks.filter(task => task.status === 'completed');
 
   // Get overdue tasks
   const overdueTasks = myTasks.filter(task => 
@@ -69,7 +69,7 @@ export function MyTasks({ onEditTask }: MyTasksProps) {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">To Do</p>
-              <p className="text-2xl font-semibold text-gray-900">{todoTasks.length}</p>
+              <p className="text-2xl font-semibold text-gray-900">{pendingTasks.length}</p>
             </div>
           </div>
         </div>
@@ -93,7 +93,7 @@ export function MyTasks({ onEditTask }: MyTasksProps) {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Completed</p>
-              <p className="text-2xl font-semibold text-gray-900">{doneTasks.length}</p>
+              <p className="text-2xl font-semibold text-gray-900">{completedTasks.length}</p>
             </div>
           </div>
         </div>
@@ -136,13 +136,13 @@ export function MyTasks({ onEditTask }: MyTasksProps) {
       {/* Tasks by Status */}
       <div className="space-y-8">
         {/* To Do Tasks */}
-        {todoTasks.length > 0 && (
+        {pendingTasks.length > 0 && (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900">
-              To Do ({todoTasks.length})
+              Pending ({pendingTasks.length})
             </h3>
             <div className="space-y-3">
-              {todoTasks.map((task) => (
+              {pendingTasks.map((task) => (
                 <TaskCard key={task.id} task={task} onEditTask={onEditTask} />
               ))}
             </div>
@@ -164,19 +164,19 @@ export function MyTasks({ onEditTask }: MyTasksProps) {
         )}
 
         {/* Completed Tasks */}
-        {doneTasks.length > 0 && (
+        {completedTasks.length > 0 && (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900">
-              Completed ({doneTasks.length})
+              Completed ({completedTasks.length})
             </h3>
             <div className="space-y-3">
-              {doneTasks.slice(0, 10).map((task) => (
+              {completedTasks.slice(0, 10).map((task) => (
                 <TaskCard key={task.id} task={task} onEditTask={onEditTask} />
               ))}
-              {doneTasks.length > 10 && (
+              {completedTasks.length > 10 && (
                 <div className="text-center py-4 text-gray-500">
                   <p>Showing last 10 completed tasks</p>
-                  <p className="text-sm">Total completed: {doneTasks.length}</p>
+                  <p className="text-sm">Total completed: {completedTasks.length}</p>
                 </div>
               )}
             </div>

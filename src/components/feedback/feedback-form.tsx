@@ -6,10 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { 
   MessageSquare, 
   Send, 
-  Sparkles, 
   Loader2, 
   CheckCircle,
-  AlertCircle,
   X,
   Lightbulb
 } from 'lucide-react';
@@ -23,7 +21,6 @@ interface FeedbackFormProps {
 export function FeedbackForm({ onClose, className = '' }: FeedbackFormProps) {
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [showForm, setShowForm] = useState(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,43 +67,6 @@ export function FeedbackForm({ onClose, className = '' }: FeedbackFormProps) {
     }
   };
 
-  const generateAIFeedback = async () => {
-    if (!feedback.trim()) {
-      toast.error('Please start writing your feedback first');
-      return;
-    }
-
-    setIsGenerating(true);
-    
-    try {
-      // Use our local AI endpoint
-      const aiEndpoint = '/api/feedback/improve';
-      
-      const response = await fetch(aiEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          feedback: feedback.trim(),
-          instruction: 'Improve this feedback to be more clear, constructive, and helpful while maintaining the user\'s original intent and tone.'
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setFeedback(data.improvedFeedback || feedback);
-        toast.success('AI has improved your feedback!');
-      } else {
-        throw new Error('Failed to generate AI feedback');
-      }
-    } catch (error) {
-      console.error('Error generating AI feedback:', error);
-      toast.error('AI assistance unavailable. Please continue writing your feedback.');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
   if (!showForm) {
     return (
@@ -165,34 +125,14 @@ export function FeedbackForm({ onClose, className = '' }: FeedbackFormProps) {
             className="min-h-[120px] resize-none"
             disabled={isSubmitting}
           />
-          <div className="flex items-center justify-between mt-2">
+          <div className="flex items-center justify-end mt-2">
             <span className="text-xs text-gray-500 dark:text-gray-400">
               {feedback.length}/1000 characters
             </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={generateAIFeedback}
-              disabled={isGenerating || !feedback.trim() || isSubmitting}
-              className="text-purple-600 border-purple-200 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Improving...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  AI Assist
-                </>
-              )}
-            </Button>
           </div>
         </div>
 
-        {/* AI Tips */}
+        {/* Writing Tips */}
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
           <div className="flex items-start space-x-3">
             <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
@@ -202,7 +142,7 @@ export function FeedbackForm({ onClose, className = '' }: FeedbackFormProps) {
                 <li>• Be specific about what you liked or didn't like</li>
                 <li>• Include steps to reproduce any issues</li>
                 <li>• Suggest specific improvements when possible</li>
-                <li>• Use the AI Assist button to improve your writing</li>
+                <li>• Be constructive and helpful in your feedback</li>
               </ul>
             </div>
           </div>

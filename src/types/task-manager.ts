@@ -24,7 +24,7 @@ export interface Task {
   id: string;
   title: string;
   description?: string;
-  status: 'todo' | 'in_progress' | 'done' | 'archived';
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   due_date?: string;
   estimated_hours?: number;
@@ -86,7 +86,7 @@ export interface FilterConfig {
 export interface TaskFormData {
   title: string;
   description?: string;
-  status: 'todo' | 'in_progress' | 'done' | 'archived';
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   due_date?: string;
   estimated_hours?: number;
@@ -129,10 +129,10 @@ export interface PaginatedResponse<T> {
 
 // Task status options
 export const TASK_STATUSES = [
-  { value: 'todo', label: 'To Do', color: 'bg-gray-100 text-gray-800' },
+  { value: 'pending', label: 'Pending', color: 'bg-gray-100 text-gray-800' },
   { value: 'in_progress', label: 'In Progress', color: 'bg-blue-100 text-blue-800' },
-  { value: 'done', label: 'Done', color: 'bg-green-100 text-green-800' },
-  { value: 'archived', label: 'Archived', color: 'bg-gray-100 text-gray-600' }
+  { value: 'completed', label: 'Completed', color: 'bg-green-100 text-green-800' },
+  { value: 'cancelled', label: 'Cancelled', color: 'bg-red-100 text-red-800' }
 ] as const;
 
 // Priority options

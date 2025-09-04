@@ -226,7 +226,7 @@ export function TaskCard({ task, onEditTask }: TaskCardProps) {
               <div key={subtask.id} className="flex items-center space-x-2 text-xs">
                 <div className="w-2 h-2 bg-gray-400 rounded-full" />
                 <span className="text-gray-600">{subtask.title}</span>
-                {subtask.status !== 'todo' && (
+                {subtask.status !== 'pending' && (
                   <Badge variant="secondary" className="text-xs px-1 py-0.5">
                     {TASK_STATUSES.find(s => s.value === subtask.status)?.label}
                   </Badge>

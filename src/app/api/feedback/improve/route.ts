@@ -1,4 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
+// import { aiFeedbackRateLimiter } from '@/lib/rate-limiter';
+// import { usageTracker } from '@/lib/usage-tracker';
+// import { inputValidator } from '@/lib/input-validator';
+// import { openaiClient } from '@/lib/openai-client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +24,7 @@ export async function POST(request: NextRequest) {
       success: true,
       improvedFeedback,
       originalFeedback: feedback,
-      message: 'AI feedback improvement applied'
+      message: 'Basic feedback improvement applied'
     });
 
   } catch (error) {
