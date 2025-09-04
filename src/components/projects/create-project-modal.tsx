@@ -127,9 +127,9 @@ export function CreateProjectModal({ onClose, onProjectCreate, onOpenSubtasks }:
             />
             <div className="flex justify-between items-center mt-1">
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                {formData.description.length}/1000 characters
+                {(formData.description || '').length}/1000 characters
               </span>
-              {formData.description.length >= 500 && (
+              {(formData.description || '').length >= 500 && (
                 <span className="text-xs text-green-600 dark:text-green-400">
                   ✓ Good detail level
                 </span>

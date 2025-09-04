@@ -5,14 +5,14 @@ import { Button } from '@/components/ui/button';
 import { X, Calendar, Clock, Tag } from 'lucide-react';
 import { useUpdateTask } from '@/hooks/useUpdateTask';
 import { useCreateTask } from '@/hooks/use-project-management';
-import { Task } from '@/hooks/useTasks';
+import { Task } from '@/types/project-management';
 import { SubtaskList } from '@/components/subtasks/SubtaskList';
 import { useAuth } from '@/components/auth/auth-provider'; // ✅ Correct import path
 import { toast } from 'react-hot-toast'; // ✅ Make sure this import exists
 
 interface TaskModalProps {
   task: Task;
-  projectId?: string;
+  projectId?: string | null;
   onClose: () => void;
 }
 
@@ -107,11 +107,11 @@ export function TaskModal({ task, projectId, onClose }: TaskModalProps) {
           id: task.id, 
           title, 
           description,
-          status: status || null,
-          priority: priority || null,
-          effort: effort || null,
-          estimated_hours: estimatedHours || null,
-          due_date: dueDate || null
+          status: status || 'pending',
+          priority: priority || 'medium',
+          effort: effort || 3,
+          estimated_hours: estimatedHours || undefined,
+          due_date: dueDate || undefined
         });
         
         console.log('✅ TaskModal: Task updated successfully');

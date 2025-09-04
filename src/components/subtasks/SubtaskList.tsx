@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Check, X, GripVertical } from 'lucide-react';
 import { useSubtasks, useCreateSubtask, useToggleSubtask, useRenameSubtask, useDeleteSubtask, useReorderSubtasks } from '@/hooks/subtasks';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabaseClient';
 
 interface SubtaskListProps {
   taskId: string;

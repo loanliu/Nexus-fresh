@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Task } from '@/hooks/useTasks';
+import { Task } from '@/types/project-management';
 import { useTasks } from '@/hooks/useTasks';
 import { TaskModal } from './TaskModal';
 

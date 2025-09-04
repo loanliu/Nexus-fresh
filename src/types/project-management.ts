@@ -26,7 +26,7 @@ export interface Task {
   estimated_hours?: number;
   actual_hours?: number;
   effort: number; // effort points (1-5 scale)
-  project_id?: string;
+  project_id?: string | null;
   parent_task_id?: string; // for subtasks
   sort_order: number;
   snoozed_until?: string; // for snooze functionality
@@ -153,7 +153,7 @@ export interface TaskFormData {
   due_date?: string;
   estimated_hours?: number;
   effort: number;
-  project_id?: string;
+  project_id?: string | null;
   parent_task_id?: string;
   label_ids?: string[];
 }

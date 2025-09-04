@@ -2,29 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
+import { Task } from '@/types/project-management';
 
 export const tasksKey = (projectId?: string) => ["tasks", projectId ?? "all"];
-
-export type Task = { 
-  id: string; 
-  title: string; 
-  description?: string; 
-  status?: string;
-  priority?: string;
-  due_date?: string;
-  estimated_hours?: number;
-  actual_hours?: number;
-  effort?: number;
-  project_id?: string; 
-  parent_task_id?: string;
-  sort_order?: number;
-  snoozed_until?: string;
-  created_at?: string;
-  updated_at?: string;
-  completed_at?: string;
-  user_id?: string;
-  [k: string]: any 
-};
 
 export function useTasks(projectId?: string) {
   const queryKey = tasksKey(projectId);

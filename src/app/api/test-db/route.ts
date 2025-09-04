@@ -6,8 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     console.log('=== Database Test Started ===');
     
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = createRouteHandlerClient({ cookies });
     
     // Test 1: Basic connection
     console.log('Testing basic connection...');

@@ -15,7 +15,7 @@ type Patch = {
   due_date?: string;
 };
 
-export function useUpdateTask(projectId?: string) {
+export function useUpdateTask(projectId?: string | null) {
   const queryClient = useQueryClient();
 
   return useMutation({
