@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -11,7 +11,9 @@ import {
   Plus,
   Eye,
   Search,
-  X
+  X,
+  Share2,
+  User
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -23,6 +25,7 @@ import { NaturalLanguageTaskCapture } from './natural-language-task-capture';
 import { TaskModal } from '../TaskModal';
 import { ManageTasksModal } from './manage-tasks-modal';
 import { useAuth } from '@/components/auth/auth-provider';
+import ShareDialog from '@/components/share/ShareDialog';
 
 interface ProjectListProps {
   projects: Project[];
@@ -37,12 +40,71 @@ export function ProjectList({ projects }: ProjectListProps) {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [sharingProject, setSharingProject] = useState<Project | null>(null);
+  const [projectRoles, setProjectRoles] = useState<Record<string, string>>({});
+  const [projectMembers, setProjectMembers] = useState<Record<string, any[]>>({});
   
   const queryClient = useQueryClient();
   const { user } = useAuth();
   
   // Debug logging
   console.log('ProjectList received projects:', projects);
+  
+  // Load project roles and members for each project
+  useEffect(() => {
+    const loadProjectData = async () => {
+      if (!user || projects.length === 0) return;
+      
+      const roles: Record<string, string> = {};
+      const members: Record<string, any[]> = {};
+      
+      for (const project of projects) {
+        try {
+          // Load user role
+          const role = await projectManagementClient.getUserProjectRole(project.id);
+          if (role) {
+            roles[project.id] = role;
+          }
+          
+          // Load project members
+          const projectMembers = await projectManagementClient.getProjectMembers(project.id);
+          members[project.id] = projectMembers;
+        } catch (error) {
+          console.error(`Error loading data for project ${project.id}:`, error);
+        }
+      }
+      
+      setProjectRoles(roles);
+      setProjectMembers(members);
+    };
+    
+    loadProjectData();
+  }, [user, projects]);
+  
+  // Helper function to check if user can share a project
+  const canShareProject = (projectId: string): boolean => {
+    const role = projectRoles[projectId];
+    return role === 'owner' || role === 'admin' || role === 'super_admin';
+  };
+
+  // Helper function to check if user can manage a project (archive, delete, edit)
+  const canManageProject = (projectId: string): boolean => {
+    const role = projectRoles[projectId];
+    return role === 'owner' || role === 'admin' || role === 'super_admin';
+  };
+
+  // Helper function to get role color
+  const getRoleColor = (role: string): string => {
+    switch (role) {
+      case 'owner': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      case 'admin': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      case 'super_admin': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'editor': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'viewer': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+    }
+  };
   
   // Filter projects based on search query
   const filteredProjects = projects.filter(project =>
@@ -80,6 +142,11 @@ export function ProjectList({ projects }: ProjectListProps) {
     } catch (error) {
       toast.error('Failed to archive project');
     }
+  };
+
+  const handleShareProject = (project: Project) => {
+    setSharingProject(project);
+    setShowShareDialog(true);
   };
 
   const handleUpdateProject = async (projectData: Partial<Project>) => {
@@ -262,6 +329,17 @@ export function ProjectList({ projects }: ProjectListProps) {
                   </h3>
                 </div>
                 <div className="flex items-center space-x-2">
+                  {canShareProject(project.id) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleShareProject(project)}
+                      title="Share Project"
+                      className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -270,28 +348,35 @@ export function ProjectList({ projects }: ProjectListProps) {
                   >
                     <CheckSquare className="w-4 h-4" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEditProject(project)}
-                  >
-                    <Edit3 className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleArchiveProject(project.id)}
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteProject(project.id)}
-                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  {canManageProject(project.id) && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditProject(project)}
+                        title="Edit Project"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleArchiveProject(project.id)}
+                        title="Archive Project"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteProject(project.id)}
+                        title="Delete Project"
+                        className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
               
@@ -299,6 +384,40 @@ export function ProjectList({ projects }: ProjectListProps) {
                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">
                   {project.description}
                 </p>
+              )}
+
+              {/* Project Members Section */}
+              {projectMembers[project.id] && projectMembers[project.id].length > 0 && (
+                <div className="mb-3">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Members ({projectMembers[project.id].length})
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {projectMembers[project.id].slice(0, 5).map((member) => (
+                      <div
+                        key={member.id}
+                        className="flex items-center space-x-1 bg-gray-50 dark:bg-gray-800 rounded-full px-2 py-1 text-xs"
+                      >
+                        <div className="w-5 h-5 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
+                          <User className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                        </div>
+                        <span className="text-gray-700 dark:text-gray-300 font-medium">
+                          {member.user.full_name || member.user.email}
+                        </span>
+                        <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(member.role)}`}>
+                          {member.role}
+                        </span>
+                      </div>
+                    ))}
+                    {projectMembers[project.id].length > 5 && (
+                      <div className="flex items-center space-x-1 bg-gray-50 dark:bg-gray-800 rounded-full px-2 py-1 text-xs">
+                        <span className="text-gray-500 dark:text-gray-400">
+                          +{projectMembers[project.id].length - 5} more
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
 
               <div className="flex items-center space-x-4 text-sm">
@@ -514,6 +633,20 @@ export function ProjectList({ projects }: ProjectListProps) {
           task={editingTask}
           projectId={currentProject?.id}
           onClose={handleCloseTaskModal}
+        />
+      )}
+
+      {/* Share Dialog */}
+      {showShareDialog && sharingProject && (
+        <ShareDialog
+          isOpen={showShareDialog}
+          onClose={() => {
+            setShowShareDialog(false);
+            setSharingProject(null);
+          }}
+          projectId={sharingProject.id}
+          projectName={sharingProject.name}
+          currentUserRole={projectRoles[sharingProject.id] || 'viewer'}
         />
       )}
     </div>

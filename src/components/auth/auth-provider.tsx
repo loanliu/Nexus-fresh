@@ -33,15 +33,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Debug: Check what cookies are available
+    if (typeof window !== 'undefined') {
+      const allCookies = document.cookie.split(';');
+      console.log('🍪 Frontend cookies:', allCookies.length);
+      allCookies.forEach(cookie => {
+        console.log(`🍪 Frontend Cookie: ${cookie.trim()}`);
+      });
+    }
+    
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Error getting initial session:', error);
+      }
+      console.log('🔍 Auth provider - initial session:', { 
+        hasSession: !!session, 
+        hasUser: !!session?.user,
+        userId: session?.user?.id 
+      });
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
+        console.log('🔍 Auth state change:', { event, hasSession: !!session, hasUser: !!session?.user });
         setUser(session?.user ?? null);
       }
     );
@@ -72,7 +90,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      console.log('🔍 Signing out user...');
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Sign out error:', error);
+        throw error;
+      }
+      console.log('✅ User signed out successfully');
+      
+      // Clear any stored returnUrl
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('returnUrl');
+      }
+      
+      // Force a page reload to clear any cached state
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+    } catch (error) {
+      console.error('Error during sign out:', error);
+      throw error;
+    }
   };
 
   const value = {

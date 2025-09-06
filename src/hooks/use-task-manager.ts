@@ -37,6 +37,12 @@ export const useTasks = () => {
   return useQuery({
     queryKey: QUERY_KEYS.tasks,
     queryFn: async (): Promise<Task[]> => {
+      // Get current user first
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       const { data, error } = await supabase
         .from('tasks')
         .select(`
@@ -47,6 +53,7 @@ export const useTasks = () => {
           attachments(*),
           project:projects(*)
         `)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -431,6 +438,12 @@ export const useFilteredTasks = (filters: FilterConfig) => {
   return useQuery({
     queryKey: QUERY_KEYS.filteredTasks(filters),
     queryFn: async (): Promise<Task[]> => {
+      // Get current user first
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       let query = supabase
         .from('tasks')
         .select(`
@@ -440,7 +453,8 @@ export const useFilteredTasks = (filters: FilterConfig) => {
           comments(*),
           attachments(*),
           project:projects(*)
-        `);
+        `)
+        .eq('user_id', user.id);
 
       // Apply filters
       if (filters.status?.length) {

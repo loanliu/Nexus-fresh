@@ -119,4 +119,10 @@ export const auth = {
 // Database helper
 export const db = supabase;
 
+// Direct exports for easier importing
+export const signInWithMagicLink = auth.signInWithMagicLink;
+export const signInWithGoogle = auth.signInWithGoogle;
+export const signInWithPassword = auth.signInWithPassword;
+export const resetPassword = auth.resetPassword;
+
 export default supabase;

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabase';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 
@@ -48,7 +48,7 @@ export default function AuthCallback() {
           console.log('Full URL:', url);
           
           try {
-            const { data, error: sessionError } = await auth.exchangeCodeForSession(url);
+            const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(url);
             
             console.log('Session exchange result:', { 
               hasSession: !!data.session, 
@@ -74,9 +74,21 @@ export default function AuthCallback() {
               setStatus('success');
               setMessage('Authentication successful! Redirecting...');
               
-              setTimeout(() => {
-                router.push('/');
-              }, 1500);
+              // Check for returnUrl in localStorage (set by signin page)
+              const returnUrl = localStorage.getItem('returnUrl');
+              console.log('🔍 Auth callback - returnUrl from localStorage:', returnUrl);
+              if (returnUrl) {
+                localStorage.removeItem('returnUrl');
+                console.log('🔍 Redirecting to returnUrl:', returnUrl);
+                setTimeout(() => {
+                  window.location.href = returnUrl;
+                }, 1500);
+              } else {
+                console.log('🔍 No returnUrl found, redirecting to home');
+                setTimeout(() => {
+                  router.push('/');
+                }, 1500);
+              }
             } else {
               if (!hasHandledError.current) {
                 hasHandledError.current = true;
@@ -103,7 +115,7 @@ export default function AuthCallback() {
         } else {
           // For Magic Links, check if we have a session
           // Magic Links should automatically create a session
-          const { data: sessionData, error: sessionError } = await auth.getSession();
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
           
           console.log('Session data:', sessionData);
           console.log('Session error:', sessionError);
@@ -126,9 +138,21 @@ export default function AuthCallback() {
             setStatus('success');
             setMessage('Authentication successful! Redirecting...');
             
-            setTimeout(() => {
-              router.push('/');
-            }, 1500);
+            // Check for returnUrl in localStorage (set by signin page)
+            const returnUrl = localStorage.getItem('returnUrl');
+            console.log('🔍 Auth callback (Magic Link) - returnUrl from localStorage:', returnUrl);
+            if (returnUrl) {
+              localStorage.removeItem('returnUrl');
+              console.log('🔍 Redirecting to returnUrl:', returnUrl);
+              setTimeout(() => {
+                window.location.href = returnUrl;
+              }, 1500);
+            } else {
+              console.log('🔍 No returnUrl found, redirecting to home');
+              setTimeout(() => {
+                router.push('/');
+              }, 1500);
+            }
           } else {
             if (!hasHandledError.current) {
               hasHandledError.current = true;

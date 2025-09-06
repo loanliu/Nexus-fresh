@@ -65,9 +65,13 @@ export function DashboardLayout({ children, activeTab, onTabChange }: DashboardL
 
   const handleSignOut = async () => {
     try {
+      console.log('🔍 Dashboard: Starting sign out...');
       await signOut();
+      console.log('✅ Dashboard: Sign out completed');
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error('❌ Dashboard: Error signing out:', error);
+      // Show user-friendly error message
+      alert('Failed to sign out. Please try again or refresh the page.');
     }
   };
 

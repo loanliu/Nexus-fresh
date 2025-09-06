@@ -19,6 +19,18 @@ import {
   UpdateProjectTemplateData
 } from '@/types/project-management';
 
+interface ProjectMember {
+  id: string;
+  project_id: string;
+  user_id: string;
+  role: 'owner' | 'admin' | 'editor' | 'viewer';
+  joined_at: string;
+  user: {
+    email: string;
+    full_name?: string;
+  };
+}
+
 //const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 //const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
@@ -27,33 +39,102 @@ import {
 // Projects
 export const projectManagementClient = {
   // Project operations
+  async getUserProjectRole(projectId: string): Promise<string | null> {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('No user found in getUserProjectRole:', userError);
+        return null;
+      }
+
+      const { data, error } = await supabase
+        .from('project_members')
+        .select('role')
+        .eq('project_id', projectId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error getting user project role:', error);
+        return null;
+      }
+
+      return data?.role || null;
+    } catch (error) {
+      console.error('Error in getUserProjectRole:', error);
+      return null;
+    }
+  },
+
+  async getProjectMembers(projectId: string): Promise<ProjectMember[]> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(`/api/projects/${projectId}/members`, {
+        credentials: 'include',
+        headers: {
+          'Authorization': session?.access_token ? `Bearer ${session.access_token}` : '',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🔍 Project members data:', data.members);
+        return data.members || [];
+      } else {
+        console.error('Error fetching project members:', response.statusText);
+        return [];
+      }
+    } catch (error) {
+      console.error('Error in getProjectMembers:', error);
+      return [];
+    }
+  },
+
   async getProjects(): Promise<Project[]> {
-    const { data, error } = await supabase
-      .from('projects')
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error('No user found in getProjects:', userError);
+      throw new Error('Authentication required - Please log in to view projects');
+    }
+
+    console.log('🔍 Getting projects for user:', user.id);
+
+    // Get projects where user is a member via project_members table
+    const { data: memberProjects, error: memberError } = await supabase
+      .from('project_members')
       .select(`
-        *,
-        tasks (
-          id,
-          title,
-          description,
-          status,
-          priority,
-          due_date,
-          effort,
-          estimated_hours,
-          actual_hours
+        project:projects (
+          *,
+          tasks (
+            id,
+            title,
+            description,
+            status,
+            priority,
+            due_date,
+            effort,
+            estimated_hours,
+            actual_hours
+          )
         )
       `)
-      .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-      .eq('is_archived', false)
-      .order('created_at', { ascending: false });
+      .eq('user_id', user.id);
 
-    if (error) throw error;
+    if (memberError) {
+      console.error('Error fetching member projects:', memberError);
+      throw memberError;
+    }
+
+    // Extract projects from the nested structure and filter out archived ones
+    const projects = memberProjects
+      ?.map(member => member.project)
+      .filter(project => project && !project.is_archived) || [];
+
+    console.log('🔍 getProjects result:', projects);
     
-    // Debug logging
-    console.log('getProjects result:', data);
-    
-    return data || [];
+    return projects;
   },
 
   async getProject(id: string): Promise<Project | null> {
