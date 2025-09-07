@@ -185,6 +185,7 @@ export function DashboardLayout({ children, activeTab, onTabChange }: DashboardL
               variant="ghost"
               size="sm"
               className="flex-1 justify-start"
+              onClick={() => onTabChange('settings')}
             >
               <Settings className="h-4 w-4 mr-2" />
               Settings

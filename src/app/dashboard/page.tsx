@@ -11,10 +11,11 @@ import { ProjectManager } from '@/components/projects/project-manager';
 import { Analytics } from '@/components/analytics/analytics';
 import { ResourceManager } from '@/components/resources/resource-manager';
 import { FeedbackPage } from '@/components/feedback/feedback-page';
+import { UserSettings } from '@/components/settings/user-settings';
 // import { GoogleDriveConnect } from '@/components/GoogleDriveConnect';
 // import { GoogleDriveStatus } from '@/components/GoogleDriveStatus';
 
-type Tab = 'search' | 'projects' | 'resources' | /* 'google-resources' | */ 'api-keys' | 'analytics' | 'feedback' | 'task-manager' | 'categories' /* | 'google-drive' */;
+type Tab = 'search' | 'projects' | 'resources' | /* 'google-resources' | */ 'api-keys' | 'analytics' | 'feedback' | 'task-manager' | 'categories' | 'settings' /* | 'google-drive' */;
 // Add a new tab for Google Drive
 const tabs: Tab [] = [
   'search', 
@@ -81,6 +82,8 @@ export default function DashboardPage() {
         return <Analytics />;
       case 'feedback':
         return <FeedbackPage />;
+      case 'settings':
+        return <UserSettings />;
         // case 'google-drive':
         //   console.log('Dashboard: Google Drive case matched!'); // Add this
         //   return (

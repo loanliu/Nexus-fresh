@@ -14,6 +14,7 @@ import { FeedbackPage } from '@/components/feedback/feedback-page';
 import { EnhancedAuthForm } from '@/components/auth/enhanced-auth-form';
 import { useAuth } from '@/components/auth/auth-provider';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { UserSettings } from '@/components/settings/user-settings';
 // import { GoogleDriveConnect } from '@/components/GoogleDriveConnect';
 // import { GoogleDriveStatus } from '@/components/GoogleDriveStatus'; 
 
@@ -53,6 +54,8 @@ export default function DashboardPage() {
         return <Analytics />;
       case 'feedback':
         return <FeedbackPage />;
+      case 'settings':
+        return <UserSettings />;
       // case 'google-drive':
       //   return (
       //     <div className="space-y-6">
