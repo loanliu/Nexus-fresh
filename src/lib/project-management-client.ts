@@ -128,11 +128,11 @@ export const projectManagementClient = {
     }
 
     // Extract projects from the nested structure and filter out archived ones
-    const projects = memberProjects
+    const projects = (memberProjects
       ?.map(member => member.project)
       .filter((project): project is NonNullable<typeof project> => 
         project != null && !(project as any).is_archived
-      ) || [];
+      ) || []) as Project[];
 
     console.log('🔍 getProjects result:', projects);
     
