@@ -87,7 +87,7 @@ export function useResources() {
         const resourcesWithProjectIds = data.filter(r => r.project_id && !r.project);
         if (resourcesWithProjectIds.length > 0) {
           console.log('🔍 Fetching project names for resources with project_id');
-          const projectIds = [...new Set(resourcesWithProjectIds.map(r => r.project_id))];
+          const projectIds = Array.from(new Set(resourcesWithProjectIds.map(r => r.project_id)));
           
           const { data: projects, error: projectsError } = await supabase
             .from('projects')
