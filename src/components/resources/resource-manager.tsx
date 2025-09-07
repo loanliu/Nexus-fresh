@@ -17,16 +17,41 @@ import { ResourceDetailModal } from './resource-detail-modal';
 import { Resource, Category } from '@/types';
 import { useResources } from '@/hooks/use-resources';
 import { useCategories } from '@/hooks/use-categories';
+import { useAuth } from '@/components/auth/auth-provider';
 
 export function ResourceManager() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedProject, setSelectedProject] = useState<string>('all');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
-  const { resources, loading, error, addResource, updateResource, deleteResource } = useResources();
+  const { resources, loading, error, addResource, updateResource, deleteResource, userProjects } = useResources();
   const { categories } = useCategories();
+  const { user } = useAuth();
+
+  // Helper function to check if user can delete a resource
+  const canDeleteResource = (resource: Resource): boolean => {
+    // User can always delete their own resources
+    if (resource.user_id === user?.id) {
+      return true;
+    }
+    // For shared project resources, only owners/admins can delete
+    // This will be handled by the backend RLS policies
+    return false;
+  };
+
+  // Helper function to check if user can edit a resource
+  const canEditResource = (resource: Resource): boolean => {
+    // User can always edit their own resources
+    if (resource.user_id === user?.id) {
+      return true;
+    }
+    // For shared project resources, only owners/admins can edit
+    // This will be handled by the backend RLS policies
+    return false;
+  };
 
   const filteredResources = resources.filter(resource => {
     const matchesSearch = resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -34,8 +59,11 @@ export function ResourceManager() {
                          resource.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesCategory = selectedCategory === 'all' || resource.category_id === selectedCategory;
+    const matchesProject = selectedProject === 'all' || 
+                          (selectedProject === 'none' && !resource.project_id) ||
+                          resource.project_id === selectedProject;
     
-    return matchesSearch && matchesCategory;
+    return matchesSearch && matchesCategory && matchesProject;
   });
 
   const getFileIcon = (fileType?: string) => {
@@ -123,6 +151,20 @@ export function ResourceManager() {
             </option>
           ))}
         </select>
+
+        <select
+          value={selectedProject}
+          onChange={(e) => setSelectedProject(e.target.value)}
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+        >
+          <option value="all">All Projects</option>
+          <option value="none">No Project</option>
+          {userProjects.map(project => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Resources Count */}
@@ -131,6 +173,8 @@ export function ResourceManager() {
           Showing {filteredResources.length} resources
           {searchQuery && ` for "${searchQuery}"`}
           {selectedCategory !== 'all' && ` in ${categories.find(cat => cat.id === selectedCategory)?.name}`}
+          {selectedProject !== 'all' && selectedProject !== 'none' && ` in ${userProjects.find(proj => proj.id === selectedProject)?.name}`}
+          {selectedProject === 'none' && ` without project`}
         </p>
       </div>
 
@@ -182,6 +226,20 @@ export function ResourceManager() {
                         </svg>
                         {categories.find(cat => cat.id === resource.category_id)?.name || 'Uncategorized'}
                       </span>
+                      
+                      {resource.project_id && (
+                        <span className="flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                          </svg>
+                          <span className="text-xs px-2 py-1 rounded-full" style={{ 
+                            backgroundColor: resource.project?.color ? resource.project.color + '20' : '#f3f4f6', 
+                            color: resource.project?.color || '#6b7280' 
+                          }}>
+                            {resource.project?.name || `Project ${resource.project_id}`}
+                          </span>
+                        </span>
+                      )}
                       
                                              {resource.file_size && (
                          <span className="flex items-center gap-2">
@@ -249,6 +307,8 @@ export function ResourceManager() {
           setSelectedResource(null);
           // Resource will be automatically removed from the list
         }}
+        canDelete={selectedResource ? canDeleteResource(selectedResource) : true}
+        canEdit={selectedResource ? canEditResource(selectedResource) : true}
       />
     </div>
   );

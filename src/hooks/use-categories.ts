@@ -7,9 +7,36 @@ import { useAuth } from '@/components/auth/auth-provider';
 
 export function useCategories() {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [userProjects, setUserProjects] = useState<Array<{id: string; name: string; color: string}>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+
+  // Fetch user projects for category filtering
+  const fetchUserProjects = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('project_members')
+        .select('project_id, projects(id, name, color)')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      const projects = data?.map(item => ({
+        id: item.project_id,
+        name: item.projects?.name || `Project ${item.project_id}`,
+        color: item.projects?.color || '#3B82F6'
+      })) || [];
+
+      setUserProjects(projects);
+      return projects;
+    } catch (err) {
+      console.error('Error fetching user projects:', err);
+      return [];
+    }
+  }, [user]);
 
   // Fetch categories
   const fetchCategories = useCallback(async () => {
@@ -28,17 +55,48 @@ export function useCategories() {
       
       console.log('Fetching categories for user:', user.id);
 
+      // Fetch categories using the new RLS policy that works through tasks
       const { data, error: fetchError } = await supabase
         .from('categories')
         .select('*')
-        .eq('user_id', user.id)
         .order('name', { ascending: true });
 
       console.log('Categories query result:', { data, error: fetchError });
 
       if (fetchError) throw fetchError;
 
-      const categories = data || [];
+      let categories = data || [];
+      
+      // For each category, find which projects use it (for display purposes)
+      if (categories && categories.length > 0) {
+        console.log('🔍 Finding projects that use each category through resources');
+        
+        for (let i = 0; i < categories.length; i++) {
+          const category = categories[i];
+          
+          // Find projects that use this category through resources
+          const { data: projects, error: projectsError } = await supabase
+            .from('resources')
+            .select('project_id, projects(id, name, color)')
+            .eq('category_id', category.id)
+            .not('project_id', 'is', null);
+
+          if (!projectsError && projects) {
+            // Get unique project names
+            const projectNames = [...new Set(
+              projects
+                .filter(p => p.projects)
+                .map(p => p.projects.name)
+            )];
+            
+            categories[i] = {
+              ...category,
+              shared_in_projects: projectNames
+            };
+          }
+        }
+      }
+
       setCategories(categories);
       console.log('Categories set to:', categories);
 
@@ -209,11 +267,13 @@ export function useCategories() {
       return;
     }
 
+    fetchUserProjects();
     fetchCategories();
-  }, [user, fetchCategories]);
+  }, [user, fetchUserProjects, fetchCategories]);
 
   return {
     categories,
+    userProjects,
     loading,
     error,
     addCategory,

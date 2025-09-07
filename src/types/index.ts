@@ -6,6 +6,7 @@ export interface Resource {
   content?: string;
   category_id: string;
   subcategory_id?: string;
+  project_id?: string;
   tags: string[];
   file_url?: string;
   file_type?: string;
@@ -17,6 +18,12 @@ export interface Resource {
   is_favorite: boolean;
   notes?: string;
   metadata?: Record<string, any>;
+  // Computed fields
+  project?: {
+    id: string;
+    name: string;
+    color: string;
+  };
 }
 
 // Category Types
@@ -32,6 +39,8 @@ export interface Category {
   user_id: string;
   is_default: boolean;
   sort_order: number;
+  // Categories are shared through tasks, not directly assigned to projects
+  shared_in_projects?: string[]; // Array of project names that use this category
 }
 
 // Subcategory Types
@@ -252,6 +261,7 @@ export interface ResourceFormData {
   description?: string;
   category_id: string;
   subcategory_id?: string;
+  project_id?: string;
   tags: string[];
   notes?: string;
   file?: File;

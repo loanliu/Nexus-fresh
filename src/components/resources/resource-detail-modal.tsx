@@ -30,6 +30,8 @@ interface ResourceDetailModalProps {
   onClose: () => void;
   onResourceUpdated: (resource: Resource) => void;
   onResourceDeleted: (resourceId: string) => void;
+  canDelete?: boolean;
+  canEdit?: boolean;
 }
 
 export function ResourceDetailModal({ 
@@ -37,14 +39,16 @@ export function ResourceDetailModal({
   isOpen, 
   onClose, 
   onResourceUpdated, 
-  onResourceDeleted 
+  onResourceDeleted,
+  canDelete = true,
+  canEdit = true
 }: ResourceDetailModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Resource>>({});
   const [newTag, setNewTag] = useState('');
 
   const { categories } = useCategories();
-  const { updateResource, deleteResource } = useResources();
+  const { updateResource, deleteResource, userProjects } = useResources();
 
   if (!resource || !isOpen) return null;
 
@@ -54,6 +58,7 @@ export function ResourceDetailModal({
       description: resource.description,
       category_id: resource.category_id,
       subcategory_id: resource.subcategory_id,
+      project_id: resource.project_id,
       tags: [...resource.tags],
       notes: resource.notes,
     });
@@ -175,10 +180,12 @@ export function ResourceDetailModal({
             <div className="flex items-center space-x-2">
               {!isEditing && (
                 <>
-                  <Button variant="outline" size="sm" onClick={handleEdit}>
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit
-                  </Button>
+                  {canEdit && (
+                    <Button variant="outline" size="sm" onClick={handleEdit}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={handleDownloadFile}>
                     <Download className="h-4 w-4 mr-2" />
                     Download
@@ -272,6 +279,31 @@ export function ResourceDetailModal({
                     )}
                   </div>
                 )}
+
+                {/* Project */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Project
+                  </label>
+                  {isEditing ? (
+                    <select
+                      value={editData.project_id || ''}
+                      onChange={(e) => setEditData(prev => ({ ...prev, project_id: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    >
+                      <option value="">No project assigned</option>
+                      {userProjects.map(project => (
+                        <option key={project.id} value={project.id}>
+                          {project.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-gray-600 dark:text-gray-400">
+                      {resource.project?.name || (resource.project_id ? `Project ${resource.project_id}` : 'No project assigned')}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Right Column - Tags, Notes, Metadata */}
@@ -395,14 +427,16 @@ export function ResourceDetailModal({
                   Cancel
                 </Button>
               )}
-              <Button
-                variant="outline"
-                onClick={handleDelete}
-                className="text-red-600 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-600 dark:hover:bg-red-900/20"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </Button>
+              {canDelete && (
+                <Button
+                  variant="outline"
+                  onClick={handleDelete}
+                  className="text-red-600 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-600 dark:hover:bg-red-900/20"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+              )}
             </div>
             
             <div className="flex space-x-2">

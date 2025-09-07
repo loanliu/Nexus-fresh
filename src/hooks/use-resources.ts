@@ -7,9 +7,31 @@ import { useAuth } from '@/components/auth/auth-provider';
 
 export function useResources() {
   const [resources, setResources] = useState<Resource[]>([]);
+  const [userProjects, setUserProjects] = useState<Array<{id: string; name: string; color: string}>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+
+  // Fetch user projects
+  const fetchUserProjects = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data: userProjects, error: projectsError } = await supabase
+        .from('project_members')
+        .select(`
+          project:projects(id, name, color)
+        `)
+        .eq('user_id', user.id);
+
+      if (projectsError) throw projectsError;
+
+      const projects = userProjects?.map(p => p.project).filter(Boolean) || [];
+      setUserProjects(projects);
+    } catch (err) {
+      console.error('Error fetching user projects:', err);
+    }
+  }, [user]);
 
   // Fetch resources
   const fetchResources = useCallback(async () => {
@@ -19,17 +41,76 @@ export function useResources() {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
+      // Get user's projects first
+      const { data: userProjects, error: projectsError } = await supabase
+        .from('project_members')
+        .select('project_id')
+        .eq('user_id', user.id);
+
+      if (projectsError) throw projectsError;
+
+      const projectIds = userProjects?.map(p => p.project_id) || [];
+      console.log('🔍 User projects for resource filtering:', userProjects);
+      console.log('🔍 Project IDs for filtering:', projectIds);
+
+      // Fetch resources - try with project join first, fallback to basic query
+      // Include resources owned by user OR from projects they're members of
+      let { data, error: fetchError } = await supabase
         .from('resources')
         .select(`
           *,
-          categories!inner(name, color, icon)
+          categories!inner(name, color, icon),
+          projects(id, name, color)
         `)
-        .eq('user_id', user.id)
+        .or(`user_id.eq.${user.id},project_id.in.(${projectIds.length > 0 ? projectIds.join(',') : 'null'})`)
         .order('created_at', { ascending: false });
+
+      // If the query fails (likely because project_id column doesn't exist yet), try without project join
+      if (fetchError && fetchError.message.includes('project_id')) {
+        console.log('🔍 Project column not found, falling back to basic query');
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('resources')
+          .select(`
+            *,
+            categories!inner(name, color, icon)
+          `)
+          .or(`user_id.eq.${user.id},project_id.in.(${projectIds.length > 0 ? projectIds.join(',') : 'null'})`)
+          .order('created_at', { ascending: false });
+        
+        if (fallbackError) throw fallbackError;
+        data = fallbackData;
+        fetchError = null;
+      }
+
+      // If we have resources with project_id but no project data, fetch project names manually
+      if (data && data.length > 0) {
+        const resourcesWithProjectIds = data.filter(r => r.project_id && !r.project);
+        if (resourcesWithProjectIds.length > 0) {
+          console.log('🔍 Fetching project names for resources with project_id');
+          const projectIds = [...new Set(resourcesWithProjectIds.map(r => r.project_id))];
+          
+          const { data: projects, error: projectsError } = await supabase
+            .from('projects')
+            .select('id, name, color')
+            .in('id', projectIds);
+          
+          if (!projectsError && projects) {
+            console.log('🔍 Fetched project names:', projects);
+            // Add project data to resources
+            data = data.map(resource => {
+              if (resource.project_id && !resource.project) {
+                const project = projects.find(p => p.id === resource.project_id);
+                return { ...resource, project };
+              }
+              return resource;
+            });
+          }
+        }
+      }
 
       if (fetchError) throw fetchError;
 
+      console.log('🔍 Fetched resources with project data:', data);
       setResources(data || []);
     } catch (err) {
       console.error('Error fetching resources:', err);
@@ -87,6 +168,7 @@ export function useResources() {
         description: resourceData.description,
         category_id: resourceData.category_id,
         subcategory: resourceData.subcategory_id, // Note: DB uses 'subcategory' not 'subcategory_id'
+        project_id: resourceData.project_id,
         tags: resourceData.tags,
         notes: resourceData.notes,
         file_url: fileUrl,
@@ -273,10 +355,12 @@ export function useResources() {
   useEffect(() => {
     if (!user) {
       setResources([]);
+      setUserProjects([]);
       setLoading(false);
       return;
     }
 
+    fetchUserProjects();
     fetchResources();
 
     // Set up real-time subscription
@@ -313,6 +397,7 @@ export function useResources() {
 
   return {
     resources,
+    userProjects,
     loading,
     error,
     addResource,

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { AISubcategoryGenerator } from './ai-subcategory-generator';
+import { useAuth } from '@/components/auth/auth-provider';
 import toast from 'react-hot-toast';
 
 export function CategoryManager() {
@@ -20,6 +21,28 @@ export function CategoryManager() {
     deleteCategory,
     fetchAllSubcategories
   } = useCategories();
+  
+  const { user } = useAuth();
+
+  // Helper function to check if user can edit a category
+  const canEditCategory = (category: Category): boolean => {
+    // User can always edit their own categories
+    if (category.user_id === user?.id) {
+      return true;
+    }
+    // For shared project categories, only owners/admins can edit
+    return false;
+  };
+
+  // Helper function to check if user can delete a category
+  const canDeleteCategory = (category: Category): boolean => {
+    // User can always delete their own categories
+    if (category.user_id === user?.id) {
+      return true;
+    }
+    // For shared project categories, only owners/admins can delete
+    return false;
+  };
 
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [editingItem, setEditingItem] = useState<{
@@ -187,7 +210,17 @@ export function CategoryManager() {
                 />
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {category.name}
+                  {canEditCategory(category) && ' >'}
                 </h3>
+                {category.shared_in_projects && category.shared_in_projects.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {category.shared_in_projects.map((projectName, index) => (
+                      <span key={index} className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                        {projectName}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -201,44 +234,50 @@ export function CategoryManager() {
                 </Button>
               </div>
               <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setEditingItem({ type: 'category', id: category.id, data: category })}
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAddForm({ type: 'subcategory', categoryId: category.id })}
-                >
-                  <FolderOpen className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAIGenerator(category.id)}
-                  className="text-purple-600 hover:text-purple-700"
-                  title="Generate subcategories with AI"
-                >
-                  <Sparkles className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAddForm({ type: 'tag', categoryId: category.id })}
-                >
-                  <Tag className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDeleteItem('category', category.id)}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {canEditCategory(category) && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingItem({ type: 'category', id: category.id, data: category })}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAddForm({ type: 'subcategory', categoryId: category.id })}
+                    >
+                      <FolderOpen className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAIGenerator(category.id)}
+                      className="text-purple-600 hover:text-purple-700"
+                      title="Generate subcategories with AI"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAddForm({ type: 'tag', categoryId: category.id })}
+                    >
+                      <Tag className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+                {canDeleteCategory(category) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteItem('category', category.id)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
 

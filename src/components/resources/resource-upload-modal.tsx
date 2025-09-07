@@ -36,6 +36,7 @@ export function ResourceUploadModal({ isOpen, onClose, onResourceAdded }: Resour
     description: '',
     category_id: '',
     subcategory_id: '',
+    project_id: '',
     tags: [],
     notes: '',
   });
@@ -43,7 +44,7 @@ export function ResourceUploadModal({ isOpen, onClose, onResourceAdded }: Resour
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
 
   const { categories, loading: categoriesLoading, error: categoriesError, createDefaultCategories } = useCategories();
-  const { addResource } = useResources();
+  const { addResource, userProjects } = useResources();
 
   // Debug categories loading
   console.log('Categories in upload modal:', { categories, categoriesLoading, categoriesError });
@@ -343,6 +344,28 @@ export function ResourceUploadModal({ isOpen, onClose, onResourceAdded }: Resour
                         </p>
                       </div>
                     )}
+                  </div>
+
+                  {/* Project Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Project (Optional)
+                    </label>
+                    <select
+                      value={formData.project_id}
+                      onChange={(e) => setFormData(prev => ({ ...prev, project_id: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    >
+                      <option value="">No project assigned</option>
+                      {userProjects.map(project => (
+                        <option key={project.id} value={project.id}>
+                          {project.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Associate this resource with a specific project
+                    </p>
                   </div>
                 </div>
 
