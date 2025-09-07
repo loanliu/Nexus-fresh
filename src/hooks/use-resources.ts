@@ -26,7 +26,7 @@ export function useResources() {
 
       if (projectsError) throw projectsError;
 
-      const projects = userProjects?.map(p => p.project).filter(Boolean) || [];
+      const projects = (userProjects?.map(p => p.project).filter(Boolean) as unknown) as Array<{id: string; name: string; color: string}> || [];
       setUserProjects(projects);
     } catch (err) {
       console.error('Error fetching user projects:', err);

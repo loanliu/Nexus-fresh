@@ -646,7 +646,7 @@ export function ProjectList({ projects }: ProjectListProps) {
           }}
           projectId={sharingProject.id}
           projectName={sharingProject.name}
-          currentUserRole={projectRoles[sharingProject.id] || 'viewer'}
+          currentUserRole={(projectRoles[sharingProject.id] as 'owner' | 'admin' | 'editor' | 'viewer') || 'viewer'}
         />
       )}
     </div>

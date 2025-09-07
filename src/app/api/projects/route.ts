@@ -175,7 +175,9 @@ export async function GET(req: NextRequest) {
     // Extract projects from the nested structure
     const projects = memberProjects
       ?.map(member => member.project)
-      .filter(project => project && !project.is_archived) || [];
+      .filter((project): project is NonNullable<typeof project> => 
+        project != null && !(project as any).is_archived
+      ) || [];
 
     console.log('✅ Projects found:', projects.length);
 

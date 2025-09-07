@@ -26,8 +26,8 @@ export function useCategories() {
 
       const projects = data?.map(item => ({
         id: item.project_id,
-        name: item.projects?.name || `Project ${item.project_id}`,
-        color: item.projects?.color || '#3B82F6'
+        name: (item.projects as any)?.name || `Project ${item.project_id}`,
+        color: (item.projects as any)?.color || '#3B82F6'
       })) || [];
 
       setUserProjects(projects);
@@ -83,11 +83,11 @@ export function useCategories() {
 
           if (!projectsError && projects) {
             // Get unique project names
-            const projectNames = [...new Set(
+            const projectNames = Array.from(new Set(
               projects
                 .filter(p => p.projects)
-                .map(p => p.projects.name)
-            )];
+                .map(p => (p.projects as any).name)
+            ));
             
             categories[i] = {
               ...category,
