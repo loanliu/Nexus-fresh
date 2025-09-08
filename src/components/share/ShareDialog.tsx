@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Copy, Mail, User, Crown, Edit, Eye, Trash2, ExternalLink } from 'lucide-react';
+import { X, Mail, User, Crown, PenTool, Eye, Trash2, ExternalLink } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '@/lib/supabase';
 
@@ -224,14 +224,58 @@ export default function ShareDialog({
     }
   };
 
-  const copyInviteLink = async (token: string) => {
-    const inviteUrl = `${window.location.origin}/invite/accept?token=${token}`;
+
+  // NEW: Resend invite email function
+  const resendInviteEmail = async (invite: PendingInvite) => {
     try {
-      await navigator.clipboard.writeText(inviteUrl);
-      toast.success('Invite link copied to clipboard!');
+      console.log('🔄 Starting resend process for:', invite);
+      
+      // Get the current session to pass the access token
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('🔍 Session check:', { hasSession: !!session, hasToken: !!session?.access_token });
+      
+      const requestBody = {
+        projectId,
+        email: invite.email,
+        role: invite.role,
+        message: '', // No custom message for resend
+      };
+      
+      console.log('📤 Sending request:', requestBody);
+      
+      const response = await fetch('/api/invites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': session?.access_token ? `Bearer ${session.access_token}` : '',
+        },
+        credentials: 'include',
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ API Error:', response.status, errorText);
+        toast.error(`API Error: ${response.status} - ${errorText}`);
+        return;
+      }
+
+      const result = await response.json();
+      console.log('📥 Response data:', result);
+      
+      if (result.ok && result.emailSent) {
+        toast.success(`Invite email resent to ${invite.email}`);
+        // Refresh the pending invites list
+        loadPendingInvites();
+      } else {
+        toast.error(`Failed to resend email: ${result.emailError || 'Unknown error'}`);
+      }
     } catch (error) {
-      console.error('Error copying to clipboard:', error);
-      toast.error('Failed to copy link');
+      console.error('❌ Error resending invite:', error);
+      toast.error(`Failed to resend invite: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -304,7 +348,7 @@ export default function ShareDialog({
       case 'admin':
         return <User className="w-4 h-4 text-red-500" />;
       case 'editor':
-        return <Edit className="w-4 h-4 text-blue-500" />;
+        return <PenTool className="w-4 h-4 text-blue-500" />;
       case 'viewer':
         return <Eye className="w-4 h-4 text-gray-500" />;
       default:
@@ -458,12 +502,13 @@ export default function ShareDialog({
                               </span>
                             </div>
                           </div>
+                          {/* Resend Email Button */}
                           <button
-                            onClick={() => copyInviteLink(invite.token || '')}
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1"
+                            onClick={() => resendInviteEmail(invite)}
+                            className="text-green-600 hover:text-green-800 text-sm font-medium flex items-center space-x-1 px-3 py-1 rounded-md hover:bg-green-50 transition-colors"
                           >
-                            <Copy className="w-4 h-4" />
-                            <span>Copy Link</span>
+                            <Mail className="w-4 h-4" />
+                            <span>Resend Email</span>
                           </button>
                         </div>
                       ))}

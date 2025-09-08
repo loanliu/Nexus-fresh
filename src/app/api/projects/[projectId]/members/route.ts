@@ -108,15 +108,74 @@ export async function GET(
       console.log('🔍 Error decoding JWT:', error);
     }
 
-    // Create members with proper user info
-    const members = membersData.map((member) => {
+    // Helper function to get user data by ID
+    const getUserData = async (userId: string) => {
+      try {
+        // Create a service role client to access auth.users
+        const serviceSupabase = createServerClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          {
+            cookies: {
+              getAll() {
+                return cookieStore.getAll();
+              },
+              setAll(cookiesToSet) {
+                try {
+                  cookiesToSet.forEach(({ name, value, options }) =>
+                    cookieStore.set(name, value, options)
+                  );
+                } catch {
+                  // Ignore
+                }
+              },
+            },
+          }
+        );
+        
+        // Use the admin API to get user by ID
+        const { data: authUser, error: authUserError } = await serviceSupabase.auth.admin.getUserById(userId);
+        
+        if (authUser && !authUserError) {
+          return {
+            email: authUser.user.email,
+            full_name: authUser.user.user_metadata?.full_name || authUser.user.user_metadata?.name || null
+          };
+        } else {
+          console.log('🔍 Admin getUserById failed:', authUserError);
+          
+          // Fallback: try to get from public.users table
+          const { data: publicUser, error: publicUserError } = await supabase
+            .from('users')
+            .select('email, full_name')
+            .eq('id', userId)
+            .single();
+          
+          if (publicUser && !publicUserError) {
+            return {
+              email: publicUser.email,
+              full_name: publicUser.full_name
+            };
+          }
+        }
+      } catch (error) {
+        console.log('🔍 Error in getUserData lookup:', error);
+      }
+      
+      return {
+        email: 'Unknown',
+        full_name: null
+      };
+    };
+
+    // Create members with proper user info - FIXED VERSION
+    const members = await Promise.all(membersData.map(async (member) => {
       console.log('🔍 Member data:', {
         user_id: member.user_id,
         role: member.role
       });
 
       // If this is the current user, use their actual info from JWT
-      // For other users, we'll use a simple approach for now
       const isCurrentUser = member.user_id === userId;
       
       if (isCurrentUser) {
@@ -124,21 +183,21 @@ export async function GET(
           ...member,
           user: {
             email: currentUserEmail,
-            name: currentUserName
+            full_name: currentUserName
           }
         };
       } else {
-        // For other users, we'll use a simple identifier based on their user ID
-        // This is a temporary solution until we implement proper user lookup
+        // For other users, fetch their real data from the database
+        const userData = await getUserData(member.user_id);
         return {
           ...member,
           user: {
-            email: `user-${member.user_id.slice(0, 8)}@example.com`,
-            name: `User ${member.user_id.slice(0, 8)}`
+            email: userData.email,
+            full_name: userData.full_name
           }
         };
       }
-    });
+    }));
 
 
     // Transform the data to include user details
@@ -150,7 +209,7 @@ export async function GET(
       joined_at: member.joined_at,
       user: {
         email: member.user?.email || 'Unknown',
-        full_name: member.user?.name || null
+        full_name: member.user?.full_name || null
       }
     })) || [];
 
@@ -287,11 +346,7 @@ export async function PATCH(
         id,
         user_id,
         role,
-        joined_at,
-        user:user_id (
-          email,
-          raw_user_meta_data
-        )
+        joined_at
       `)
       .single();
 
@@ -303,6 +358,69 @@ export async function PATCH(
       );
     }
 
+    // Helper function to get user data by ID (same as in GET method)
+    const getUserData = async (userId: string) => {
+      try {
+        // Create a service role client to access auth.users
+        const serviceSupabase = createServerClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          {
+            cookies: {
+              getAll() {
+                return cookieStore.getAll();
+              },
+              setAll(cookiesToSet) {
+                try {
+                  cookiesToSet.forEach(({ name, value, options }) =>
+                    cookieStore.set(name, value, options)
+                  );
+                } catch {
+                  // Ignore
+                }
+              },
+            },
+          }
+        );
+        
+        // Use the admin API to get user by ID
+        const { data: authUser, error: authUserError } = await serviceSupabase.auth.admin.getUserById(userId);
+        
+        if (authUser && !authUserError) {
+          return {
+            email: authUser.user.email,
+            full_name: authUser.user.user_metadata?.full_name || authUser.user.user_metadata?.name || null
+          };
+        } else {
+          console.log('🔍 Admin getUserById failed:', authUserError);
+          
+          // Fallback: try to get from public.users table
+          const { data: publicUser, error: publicUserError } = await supabase
+            .from('users')
+            .select('email, full_name')
+            .eq('id', userId)
+            .single();
+          
+          if (publicUser && !publicUserError) {
+            return {
+              email: publicUser.email,
+              full_name: publicUser.full_name
+            };
+          }
+        }
+      } catch (error) {
+        console.log('🔍 Error in getUserData lookup:', error);
+      }
+      
+      return {
+        email: 'Unknown',
+        full_name: null
+      };
+    };
+
+    // Get user data for the updated member
+    const userData = await getUserData(targetUserId);
+
     // Transform the response
     const transformedMember = {
       id: updatedMember.id,
@@ -310,8 +428,8 @@ export async function PATCH(
       role: updatedMember.role,
       joined_at: updatedMember.joined_at,
       user: {
-        email: (updatedMember.user as any)?.email || 'Unknown',
-        full_name: (updatedMember.user as any)?.raw_user_meta_data?.full_name || null
+        email: userData.email,
+        full_name: userData.full_name
       }
     };
 
