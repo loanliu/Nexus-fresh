@@ -106,7 +106,7 @@ export function GoogleDriveConnect() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          scopes: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
+          scopes: 'openid email profile',
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',

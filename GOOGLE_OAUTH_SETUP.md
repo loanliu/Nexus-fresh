@@ -41,7 +41,9 @@
 4. **Add scopes**:
    - `.../auth/userinfo.email`
    - `.../auth/userinfo.profile`
-   - `https://www.googleapis.com/auth/drive.readonly`
+   - `openid`
+   - `email`
+   - `profile`
 5. **Add test users** (optional for development):
    - Add your email and any other test emails
    - This allows testing before verification

@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     
     // Redirect to Supabase's built-in Google OAuth provider with additional scopes
     // We need to include Google Drive scopes for API access
-    const authUrl = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}&scopes=email,profile,https://www.googleapis.com/auth/drive.readonly`;
+    const authUrl = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}&scopes=openid,email,profile`;
     
     console.log('Redirecting to Supabase OAuth URL:', authUrl);
     

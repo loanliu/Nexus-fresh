@@ -30,7 +30,6 @@ export async function GET(req: Request) {
     include_granted_scopes: 'true',
     // Ask for Drive + basic identity (so you can call /userinfo or read id_token)
     scope: [
-      'https://www.googleapis.com/auth/drive.readonly',
       'openid',
       'email',
       'profile',
