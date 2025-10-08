@@ -174,6 +174,7 @@ export const projectManagementClient = {
     console.log('User authenticated:', user.id);
     
     try {
+      // Create the project
       const { data, error } = await supabase
         .from('projects')
         .insert(project)
@@ -198,7 +199,25 @@ export const projectManagementClient = {
         throw error;
       }
       
-      console.log('createProject result:', data);
+      console.log('Project created:', data);
+      
+      // Add the creator as the owner to project_members
+      const { error: membershipError } = await supabase
+        .from('project_members')
+        .insert({
+          project_id: data.id,
+          user_id: user.id,
+          role: 'owner'
+        });
+
+      if (membershipError) {
+        console.error('Error creating membership:', membershipError);
+        // Note: Project was created but membership failed
+        // You might want to handle this differently depending on your needs
+        throw new Error(`Project created but failed to add you as a member: ${membershipError.message}`);
+      }
+      
+      console.log('createProject result with membership:', data);
       return data;
     } catch (error) {
       console.error('Unexpected error in createProject:', error);
