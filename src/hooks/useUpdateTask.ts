@@ -20,17 +20,81 @@ export function useUpdateTask(projectId?: string | null) {
 
   return useMutation({
     mutationFn: async (patch: Patch) => {
+      // Extract id from patch - it's only used for filtering, not updating
+      const { id, ...updateData } = patch;
+      
+      // First, check if the task exists and get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('🔍 useUpdateTask: Current user:', user?.id);
+      
+      // Try to fetch the task first to see if it exists and check permissions
+      const { data: existingTask, error: fetchError } = await supabase
+        .from("tasks")
+        .select("id, user_id, title, project_id")
+        .eq("id", id)
+        .single();
+      
+      if (fetchError) {
+        console.error('❌ useUpdateTask: Failed to fetch task:', fetchError);
+        throw new Error(`Task not found or access denied: ${fetchError.message}`);
+      }
+      
+      if (!existingTask) {
+        throw new Error(`Task with id ${id} not found`);
+      }
+      
+      console.log('✅ useUpdateTask: Task found:', {
+        taskId: existingTask.id,
+        taskUserId: existingTask.user_id,
+        currentUserId: user?.id,
+        canUpdate: existingTask.user_id === user?.id
+      });
+      
+      // Check if user has permission - either they own the task OR they're a project member
+      // Use project_id from task or from parameter
+      const taskProjectId = existingTask.project_id || projectId;
+      
+      if (existingTask.user_id !== user?.id) {
+        // If task doesn't belong to user, check if they're a project member
+        if (taskProjectId) {
+          const { data: membership, error: membershipError } = await supabase
+            .from('project_members')
+            .select('role')
+            .eq('project_id', taskProjectId)
+            .eq('user_id', user?.id)
+            .single();
+          
+          if (membershipError || !membership) {
+            console.error('❌ useUpdateTask: User is not a project member:', membershipError);
+            throw new Error(`Permission denied: You don't have permission to update this task. Task belongs to user ${existingTask.user_id}, and you're not a member of the project.`);
+          }
+          
+          console.log('✅ useUpdateTask: User is a project member with role:', membership.role);
+        } else {
+          // Task has no project, so only owner can update
+          throw new Error(`Permission denied: Task belongs to user ${existingTask.user_id}, but current user is ${user?.id}`);
+        }
+      }
+      
+      console.log('🔄 useUpdateTask: Updating task with data:', updateData);
+      
       const { data, error } = await supabase
         .from("tasks")
-        .update(patch)
-        .eq("id", patch.id)
+        .update(updateData)
+        .eq("id", id)
         .select()
         .single();
       
       if (error) {
+        console.error('❌ useUpdateTask: Update error:', error);
         throw error;
       }
       
+      if (!data) {
+        throw new Error('Update returned no data - RLS policy may be blocking the update');
+      }
+      
+      console.log('✅ useUpdateTask: Update successful:', data);
       return data;
     },
     onMutate: async (patch: Patch) => {
